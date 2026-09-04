@@ -10,8 +10,8 @@ class ArticleTests(unittest.TestCase):
     def test_language_specific_discovery(self):
         response = Mock(content=b'<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>https://inmibot.es/blog/es-post</loc></url><url><loc>https://inmibot.es/en/blog/en-post</loc></url></urlset>')
         http = Mock(); http.request.return_value = response
-        self.assertEqual(discover_urls("https://example.test/sitemap.xml", "en", http), ["https://inmibot.es/en/blog/en-post"])
-        self.assertEqual(discover_urls("https://example.test/sitemap.xml", "es", http), ["https://inmibot.es/blog/es-post"])
+        self.assertEqual(discover_urls("https://example.test/sitemap.xml", "en", http), ["https://inmibot.es/en/blog/en-post", "https://inmibot.es/en/blog/es-post"])
+        self.assertEqual(discover_urls("https://example.test/sitemap.xml", "es", http), ["https://inmibot.es/blog/es-post", "https://inmibot.es/es/blog/en-post"])
 
     def test_language_is_chosen_before_article(self):
         sitemap = Mock(content=b'<urlset><url><loc>https://inmibot.es/en/blog/published</loc></url></urlset>')
