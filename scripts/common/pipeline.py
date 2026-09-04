@@ -15,19 +15,25 @@ def _execute(platform: str, directory: Path, dry: bool, generate_only: bool, art
     logging.info("Selected %s article: %s", article.language, article.canonical_url)
     content = generate(article, dry)
     caption = (content["caption"] + "\n\n" + " ".join(content["hashtags"])).strip()
-    if platform == "instagram": generated = assets.images(content, directory)
+    if platform == "instagram":
+        from .layouts.instagram import generate_instagram_images
+        generated = generate_instagram_images(content, directory)
     elif platform == "facebook":
+        from .layouts.facebook import generate_facebook_card
         output = directory / "facebook.jpg"
-        assets.card(content["slides"][0], output, (1200, 1500)); generated = [output]
+        generate_facebook_card(content["slides"][0], output, (1200, 1500))
+        generated = [output]
     elif platform == "linkedin":
-        from .generators import NarrationGenerator, SlideGenerator
+        from .generators import NarrationGenerator
+        from .layouts.linkedin import LinkedinSlideGenerator
         scenes = NarrationGenerator().generate_scenes(article)
         output = directory / "presentation.pptx"
-        sg = SlideGenerator({"video": {"resolution": (1920, 1080)}})
+        sg = LinkedinSlideGenerator({"video": {"resolution": (1920, 1080)}})
         sg.generate_pptx(scenes, str(output))
         generated = [output]
     elif platform == "youtube":
-        from .generators import NarrationGenerator, EdgeTTSProvider, SlideGenerator, VideoComposer
+        from .generators import NarrationGenerator, EdgeTTSProvider, VideoComposer
+        from .layouts.youtube import YoutubeSlideGenerator
         import asyncio, os
         scenes = NarrationGenerator().generate_scenes(article)
         audio_path = str(directory / "narration.mp3")
@@ -37,7 +43,7 @@ def _execute(platform: str, directory: Path, dry: bool, generate_only: bool, art
             Path(audio_path).write_bytes(b"") # mock audio
         slides_dir = directory / "slides"
         slides_dir.mkdir(exist_ok=True)
-        sg = SlideGenerator({"video": {"resolution": (1920, 1080)}})
+        sg = YoutubeSlideGenerator({"video": {"resolution": (1920, 1080)}})
         for i, scene in enumerate(scenes):
             sg.generate_image(scene, str(slides_dir / f"slide_{i}.png"))
         output_path = directory / "youtube.mp4"
@@ -48,7 +54,7 @@ def _execute(platform: str, directory: Path, dry: bool, generate_only: bool, art
             output_path.write_bytes(b"")
         generated = [output_path]
     elif platform == "tiktok":
-        from .generators import create_poster
+        from .layouts.tiktok import create_tiktok_poster
         slides_dir = directory / "slides"
         slides_dir.mkdir(exist_ok=True)
         slides = content.get("slides", [])
@@ -56,7 +62,7 @@ def _execute(platform: str, directory: Path, dry: bool, generate_only: bool, art
         for i, slide in enumerate(slides):
             p = slides_dir / f"slide_{i}.jpg"
             if not dry:
-                create_poster(slide["title"], slide["body"], f"PASO {i+1}", str(p), is_centered=(i==0))
+                create_tiktok_poster(slide["title"], slide["body"], f"PASO {i+1}", str(p), is_centered=(i==0))
             else:
                 p.write_bytes(b"")
             frames.append(p)
