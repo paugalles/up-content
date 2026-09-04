@@ -23,8 +23,8 @@ jobs:
       - run: python scripts/instagram.py
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          IG_USER_ID: ${{ secrets.IG_USER_ID }}
-          IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
+          INSTAGRAM_ACCOUNT_ID: ${{ secrets.INSTAGRAM_ACCOUNT_ID }}
+          META_ACCESS_TOKEN: ${{ secrets.META_ACCESS_TOKEN }}
           GCS_BUCKET_NAME: ${{ secrets.GCS_BUCKET_NAME }}
           GOOGLE_APPLICATION_CREDENTIALS_JSON: ${{ secrets.GOOGLE_APPLICATION_CREDENTIALS_JSON }}
           ARTICLE_SITEMAP_URL_ES: ${{ vars.ARTICLE_SITEMAP_URL_ES }}
