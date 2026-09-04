@@ -75,14 +75,22 @@ def discover_urls(sitemap: str, language: str, http: Http, depth: int = 0) -> li
         return result
     urls = []
     for url in locations:
-        path = urlparse(url).path.lower()
+        parsed = urlparse(url)
+        path = parsed.path.lower()
         if "/blog/" not in path or path.rstrip("/").endswith("/blog"):
             continue
         
         match = re.match(r"^/([a-z]{2}(-[a-z]+)?)/", path)
-        url_lang = match.group(1) if match else "es"
-        if url_lang != language:
-            continue
+        if match:
+            url_lang = match.group(1)
+            if url_lang != language:
+                path = f"/{language}/" + path[len(url_lang) + 2:]
+                url = parsed._replace(path=path).geturl()
+        else:
+            if language != "es": # Assuming Spanish is default if no lang prefix
+                path = f"/{language}" + path
+                url = parsed._replace(path=path).geturl()
+
         urls.append(url)
     return sorted(list(set(urls)))
 
