@@ -1,0 +1,10 @@
+requests
+beautifulsoup4
+markdown
+python-frontmatter
+python-dotenv
+openai
+pillow
+moviepy
+python-pptx
+google-cloud-storage
