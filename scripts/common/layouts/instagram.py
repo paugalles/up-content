@@ -80,9 +80,15 @@ def generate_instagram_card(slide: dict, output: Path, size: tuple[int, int], pa
     is_last = (page == total)
     
     if is_first:
-        y = 350
         title_font = _font(90, bold=True)
-        for line in _wrap(draw, title, title_font, w - margin_x*2):
+        title_lines = _wrap(draw, title, title_font, w - margin_x*2)
+        body_font = _font(60, bold=True)
+        body_lines = _wrap(draw, body, body_font, w - margin_x*2)
+        
+        total_height = len(title_lines) * 105 + 100 + len(body_lines) * 75
+        y = max(180, (h + 150 - total_height) // 2)
+
+        for line in title_lines:
             draw.text((margin_x, y), line, font=title_font, fill=brand.navy)
             y += 105
         
@@ -90,21 +96,25 @@ def generate_instagram_card(slide: dict, output: Path, size: tuple[int, int], pa
         draw.line([(margin_x, y), (margin_x + 150, y)], fill=brand.blue, width=6)
         y += 60
         
-        body_font = _font(60, bold=True)
-        for line in _wrap(draw, body, body_font, w - margin_x*2):
+        for line in body_lines:
             draw.text((margin_x, y), line, font=body_font, fill=brand.blue)
             y += 75
             
     elif is_last:
-        y = 450
         title_font = _font(80, bold=True)
-        for line in _wrap(draw, title, title_font, w - margin_x*2):
+        title_lines = _wrap(draw, title, title_font, w - margin_x*2)
+        body_font = _font(45)
+        body_lines = _wrap(draw, body, body_font, w - margin_x*2)
+        
+        total_height = len(title_lines) * 95 + 50 + len(body_lines) * 60
+        y = max(180, (h - 250 + 150 - total_height) // 2)
+
+        for line in title_lines:
             draw.text((margin_x, y), line, font=title_font, fill=brand.navy)
             y += 95
             
         y += 50
-        body_font = _font(45)
-        for line in _wrap(draw, body, body_font, w - margin_x*2):
+        for line in body_lines:
             draw.text((margin_x, y), line, font=body_font, fill=brand.slate)
             y += 60
             
@@ -117,20 +127,19 @@ def generate_instagram_card(slide: dict, output: Path, size: tuple[int, int], pa
             f_y += 55
             
     else:
-        y = 280
         title_font = _font(70, bold=True)
-        for line in _wrap(draw, title, title_font, w - margin_x*2):
-            draw.text((margin_x, y), line, font=title_font, fill=brand.navy)
-            y += 85
-            
-        y += 40
+        title_lines = _wrap(draw, title, title_font, w - margin_x*2)
         body_font = _font(40)
         
         paragraphs = body.split("\n")
+        
+        body_height = 0
+        parsed_paras = []
         for para in paragraphs:
             para = para.strip()
             if not para:
-                y += 20
+                body_height += 20
+                parsed_paras.append((False, 0, [], 20))
                 continue
                 
             is_bullet = False
@@ -142,6 +151,25 @@ def generate_instagram_card(slide: dict, output: Path, size: tuple[int, int], pa
             available_width = w - margin_x*2 - indent
             
             lines = _wrap(draw, para, body_font, available_width)
+            ph = len(lines) * 55 + 30
+            body_height += ph
+            parsed_paras.append((is_bullet, indent, lines, ph))
+            
+        total_height = len(title_lines) * 85 + 40 + body_height
+        
+        y = max(180, (h - 120 + 150 - total_height) // 2)
+
+        for line in title_lines:
+            draw.text((margin_x, y), line, font=title_font, fill=brand.navy)
+            y += 85
+            
+        y += 40
+        
+        for is_bullet, indent, lines, ph in parsed_paras:
+            if not lines:
+                y += ph
+                continue
+                
             for i, line in enumerate(lines):
                 if is_bullet and i == 0:
                     draw_check_circle(draw, margin_x + 25, y + 25, 18, brand.blue, "white")
