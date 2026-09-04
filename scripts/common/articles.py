@@ -80,12 +80,9 @@ def discover_urls(sitemap: str, language: str, http: Http, depth: int = 0) -> li
             continue
         
         match = re.match(r"^/([a-z]{2}(-[a-z]+)?)/", path)
-        if match:
-            url_lang = match.group(1)
-            if url_lang != language:
-                parsed = urlparse(url)
-                new_path = parsed.path.replace(f"/{url_lang}/", f"/{language}/", 1)
-                url = parsed._replace(path=new_path).geturl()
+        url_lang = match.group(1) if match else "es"
+        if url_lang != language:
+            continue
         urls.append(url)
     return sorted(list(set(urls)))
 

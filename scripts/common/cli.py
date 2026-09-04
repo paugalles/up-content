@@ -5,8 +5,11 @@ from .pipeline import run
 
 
 def main(platform: str, argv=None) -> int:
-    import dotenv
-    dotenv.load_dotenv()
+    try:
+        import dotenv
+        dotenv.load_dotenv()
+    except ImportError:
+        pass
     parser = argparse.ArgumentParser(description=f"Generate and publish {platform} content")
     parser.add_argument("--generate-only", action="store_true", help="generate persistent assets and metadata without publishing")
     parser.add_argument("--output-dir", type=Path, help="persistent output directory; requires --generate-only")
