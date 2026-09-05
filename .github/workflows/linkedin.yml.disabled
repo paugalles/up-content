@@ -1,0 +1,29 @@
+name: Publish LinkedIn
+on:
+  schedule:
+    - cron: '0 7,13,19 * * *'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency: {group: publish-linkedin, cancel-in-progress: false}
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with: {python-version: '3.12', cache: pip}
+      - run: sudo apt-get update && sudo apt-get install -y ffmpeg fonts-dejavu-core
+      - run: pip install -r requirements.txt
+      - run: python -m unittest discover -s tests -v
+        env: {DRY_RUN: 'true'}
+      - run: python scripts/linkedin.py
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          LINKEDIN_ACCESS_TOKEN: ${{ secrets.LINKEDIN_ACCESS_TOKEN }}
+          LINKEDIN_CLIENT_ID: ${{ secrets.LINKEDIN_CLIENT_ID }}
+          LINKEDIN_CLIENT_SECRET: ${{ secrets.LINKEDIN_CLIENT_SECRET }}
+          LINKEDIN_ORGANIZATION_ID: ${{ secrets.LINKEDIN_ORGANIZATION_ID }}
+          ARTICLE_SITEMAP_URL_ES: ${{ vars.ARTICLE_SITEMAP_URL_ES }}
+          ARTICLE_SITEMAP_URL_EN: ${{ vars.ARTICLE_SITEMAP_URL_EN }}
