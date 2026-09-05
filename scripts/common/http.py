@@ -15,9 +15,11 @@ class Http:
             try:
                 response = self.session.request(method, url, **kwargs)
                 if response.status_code not in {429, 500, 502, 503, 504}:
-                    response.raise_for_status()
+                    if not response.ok:
+                        raise requests.exceptions.HTTPError(f"{response.status_code} Client Error: {response.reason} for url: {response.url} - Response: {response.text}", response=response)
                     return response
-                response.raise_for_status()
+                if not response.ok:
+                    raise requests.exceptions.HTTPError(f"{response.status_code} Client Error: {response.reason} for url: {response.url} - Response: {response.text}", response=response)
             except requests.RequestException:
                 if attempt + 1 == self.attempts:
                     raise

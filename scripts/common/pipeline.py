@@ -18,11 +18,6 @@ def _execute(platform: str, directory: Path, dry: bool, generate_only: bool, art
     if platform == "instagram":
         from .layouts.instagram import generate_instagram_images
         generated = generate_instagram_images(content, directory)
-    elif platform == "facebook":
-        from .layouts.facebook import generate_facebook_card
-        output = directory / "facebook.jpg"
-        generate_facebook_card(content["slides"][0], output, (1200, 1500))
-        generated = [output]
     elif platform == "linkedin":
         from .generators import NarrationGenerator
         from .layouts.linkedin import LinkedinSlideGenerator
@@ -77,8 +72,14 @@ def _execute(platform: str, directory: Path, dry: bool, generate_only: bool, art
     if generate_only or dry:
         logging.info("Publication skipped (%s)", "--generate-only" if generate_only else "DRY_RUN")
         return 0
-    if platform == "instagram": publication_id = publishers.instagram(generated, caption)
-    elif platform == "facebook": publication_id = publishers.facebook(generated[0], caption)
+    if platform == "instagram": 
+        # Cross-post to facebook using the same assets and caption FIRST
+        fb_publication_id = publishers.facebook(generated, caption)
+        logging.info("Published facebook ID: %s", fb_publication_id)
+        
+        # Then publish to instagram
+        publication_id = publishers.instagram(generated, caption)
+        logging.info("Published instagram ID: %s", publication_id)
     elif platform == "linkedin": publication_id = publishers.linkedin(generated[0], caption)
     elif platform == "tiktok": publication_id = publishers.tiktok(generated, caption)
     else: publication_id = publishers.youtube(generated[0], content)

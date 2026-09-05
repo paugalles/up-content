@@ -37,10 +37,24 @@ def instagram(assets: list[Path], caption: str, http=Http()):
     return http.json("POST", f"{GRAPH}/{env['INSTAGRAM_ACCOUNT_ID']}/media_publish", data={"creation_id": parent, "access_token": env["META_ACCESS_TOKEN"]})["id"]
 
 
-def facebook(asset: Path, caption: str, http=Http()):
-    env = require("FACEBOOK_PAGE_ID", "FACEBOOK_PAGE_ACCESS_TOKEN")
-    with asset.open("rb") as handle:
-        return http.json("POST", f"{GRAPH}/{env['FACEBOOK_PAGE_ID']}/photos", data={"message": caption, "access_token": env["FACEBOOK_PAGE_ACCESS_TOKEN"]}, files={"source": handle})["id"]
+def facebook(assets: list[Path], caption: str, http=Http()):
+    env = require("FACEBOOK_PAGE_ACCESS_TOKEN")
+    
+    # Facebook requires uploading photos individually as unpublished, then attaching them to a post
+    attached_media = []
+    for path in assets:
+        # Instead of `files`, upload the image via a presigned-like temporary URL to bypass multipart quirks,
+        # or we can use the same temporary upload server `uguu.se` that the instagram publisher is using.
+        with path.open("rb") as f:
+            resp = http.json("POST", "https://uguu.se/upload", files={"files[]": f})
+        url = resp["files"][0]["url"]
+        
+        # Now submit the URL directly to Facebook using `/me/photos` to avoid ID resolution errors
+        resp = http.json("POST", f"{GRAPH}/me/photos", data={"url": url, "published": "false", "access_token": env["FACEBOOK_PAGE_ACCESS_TOKEN"]})
+        attached_media.append({"media_fbid": str(resp["id"])})
+            
+    # Create a multi-photo post by attaching the uploaded media
+    return http.json("POST", f"{GRAPH}/me/feed", data={"message": caption, "attached_media": json.dumps(attached_media), "access_token": env["FACEBOOK_PAGE_ACCESS_TOKEN"]})["id"]
 
 
 def youtube(asset: Path, content: dict):
