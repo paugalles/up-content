@@ -73,6 +73,9 @@ class NarrationGenerator:
         if current_group["heading"] or current_group["paragraphs"]:
             grouped_sections.append(current_group)
             
+        # Limit to the first 5 sections to make the videos/powerpoints shorter
+        grouped_sections = grouped_sections[:5]
+            
         for group in grouped_sections:
             heading = group["heading"]
             paragraphs_text = " ".join(group["paragraphs"])
@@ -88,6 +91,8 @@ class NarrationGenerator:
             
             try:
                 sys_prompt = f"""You are a helpful assistant that summarizes text for a PowerPoint slide. 
+Make the content specific, direct to the point, and highly useful. DO NOT include generic advice like "have your documentation ready" or obvious filler. 
+Focus only on relevant information such as: exactly what you will find in the form, specific requirements, and exactly where to book an appointment.
 If the text describes comparisons between options, costs/fees, wait times (e.g., in months), or any meaningful quantitative data, output a JSON object representing a chart that visualizes this data:
 {{
   "type": "chart",
