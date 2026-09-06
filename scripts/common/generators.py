@@ -73,8 +73,28 @@ class NarrationGenerator:
         if current_group["heading"] or current_group["paragraphs"]:
             grouped_sections.append(current_group)
             
-        # Limit to the first 5 sections to make the videos/powerpoints shorter
-        grouped_sections = grouped_sections[:5]
+        original_grouped_sections = grouped_sections[:]
+        try:
+            import json
+            sys_msg = {
+                "role": "system", 
+                "content": "You are a content editor. Given a list of article sections, select 1 to 4 of the most relevant and highly useful ones (e.g. specific requirements, exact locations, what is in the form). Skip generic, obvious, or filler sections. Return a JSON object with a key 'indices' containing an array of the selected 0-indexed integers. Example: {\"indices\": [0, 2, 3]}"
+            }
+            user_content = "Sections:\n" + "\n".join([f"[{i}] {g['heading']}: {' '.join(g['paragraphs'])[:200]}" for i, g in enumerate(grouped_sections)])
+            res = client.chat.completions.create(
+                model="gpt-4o-mini",
+                response_format={"type": "json_object"},
+                messages=[sys_msg, {"role": "user", "content": user_content}],
+                max_tokens=100
+            )
+            data = json.loads(res.choices[0].message.content)
+            indices = data.get("indices", list(range(len(grouped_sections))))
+            grouped_sections = [grouped_sections[i] for i in indices if isinstance(i, int) and i < len(grouped_sections)][:4]
+        except Exception:
+            grouped_sections = grouped_sections[:4]
+            
+        if not grouped_sections and original_grouped_sections:
+            grouped_sections = original_grouped_sections[:1]
             
         for group in grouped_sections:
             heading = group["heading"]

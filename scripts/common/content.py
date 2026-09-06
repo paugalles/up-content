@@ -13,7 +13,7 @@ SCHEMA = {
         "title": {"type": "string"},
         "caption": {"type": "string"},
         "hashtags": {"type": "array", "items": {"type": "string"}, "minItems": 4, "maxItems": 10},
-        "slides": {"type": "array", "minItems": 4, "maxItems": 6, "items": {
+        "slides": {"type": "array", "minItems": 3, "maxItems": 5, "items": {
             "type": "object", "additionalProperties": False, "required": ["label", "title", "body"],
             "properties": {"label": {"type": "string"}, "title": {"type": "string"}, "body": {"type": "string"}}}},
         "narration": {"type": "string"},
@@ -41,7 +41,7 @@ def generate(article: Article, dry_run: bool) -> dict:
     from openai import OpenAI
     prompt = f"""Act as an expert in marketing and social media content creation. Create concise {article.language} social content for {brand.name} from the supplied published article.
 Use ONLY facts explicitly present in the source. Never invent legal facts, requirements, deadlines, fees, or outcomes.
-Make 4-6 logically ordered slides, useful narration under 600 words, and a compelling platform-neutral caption. Make the content specific, direct to the point, and shorter.
+Make 3-5 logically ordered slides, useful narration under 600 words, and a compelling platform-neutral caption. Make the content specific, direct to the point, and shorter.
 DO NOT include generic advice like "have your documentation ready", "read the instructions", or obvious filler.
 INSTEAD, focus only on relevant and highly useful information such as: exactly what you will find in the form, specific requirements, and exactly where to book an appointment.
 The first slide MUST act as a hook or present the key point of the post, ensuring the viewer understands the main idea at first glance.
