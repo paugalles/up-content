@@ -59,7 +59,7 @@ class NarrationGenerator:
             line = line.strip()
             if not line: continue
             clean_line = re.sub(r"^[-*]\s*", "", line)
-            if re.match(r"^(?:author|autor|publication date|fecha de publicaci[oó]n)\s*:", clean_line, re.IGNORECASE):
+            if re.match(r"^(?:author|autor|publication date|fecha de publicaci[oó]n|author information)\s*:", clean_line, re.IGNORECASE):
                 continue
             if line.startswith('##'):
                 if current_group["heading"] or current_group["paragraphs"]:
@@ -112,7 +112,9 @@ class NarrationGenerator:
             try:
                 sys_prompt = f"""You are a helpful assistant that summarizes text for a PowerPoint slide. 
 Make the content specific, direct to the point, and highly useful. DO NOT include generic advice like "have your documentation ready" or obvious filler. 
+DO NOT include the author name, publication date, lawyer names, or firm names.
 Focus only on relevant information such as: exactly what you will find in the form, specific requirements, and exactly where to book an appointment.
+IMPORTANT: To prevent text from overflowing the slide, you MUST limit your response to MAXIMUM 3 bullet points, and each bullet point MUST be very short (under 12 words).
 If the text describes comparisons between options, costs/fees, wait times (e.g., in months), or any meaningful quantitative data, output a JSON object representing a chart that visualizes this data:
 {{
   "type": "chart",
@@ -127,7 +129,7 @@ If the text describes a step-by-step process or a timeline, output a JSON object
   "title": "Process Title",
   "steps": ["Step 1 description", "Step 2 description", "Step 3 description"]
 }}
-Otherwise, output a JSON object with bullet points:
+Otherwise, output a JSON object with bullet points (MAXIMUM 3 bullets, max 12 words each):
 {{
   "type": "bullets",
   "items": [
