@@ -92,7 +92,7 @@ def _execute(platform: str, directory: Path, dry: bool, generate_only: bool, art
         for i, slide in enumerate(slides):
             p = slides_dir / f"slide_{i}.jpg"
             if not dry:
-                create_tiktok_poster(slide["title"], slide["body"], f"PASO {i+1}", str(p), is_centered=(i==0))
+                create_tiktok_poster(slide["title"], slide["body"], f"PASO {i+1}" if i > 0 and i < len(slides)-1 else "", str(p), is_centered=(i==0), is_last=(i==len(slides)-1))
             else:
                 p.write_bytes(b"")
             frames.append(p)
@@ -134,7 +134,7 @@ def _execute(platform: str, directory: Path, dry: bool, generate_only: bool, art
         for i, slide in enumerate(slides):
             p = tk_dir / f"slide_{i}.jpg"
             if not dry:
-                create_tiktok_poster(slide["title"], slide["body"], f"PASO {i+1}", str(p), is_centered=(i==0))
+                create_tiktok_poster(slide["title"], slide["body"], f"PASO {i+1}" if i > 0 and i < len(slides)-1 else "", str(p), is_centered=(i==0), is_last=(i==len(slides)-1))
             else:
                 p.write_bytes(b"")
             tk_generated.append(p)

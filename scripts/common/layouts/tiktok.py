@@ -2,7 +2,7 @@ import textwrap
 from PIL import Image, ImageDraw, ImageFont
 from ..config import branding
 
-def create_tiktok_poster(title, description, top_label, output_path, is_centered=False):
+def create_tiktok_poster(title, description, top_label, output_path, is_centered=False, is_last=False):
     """Generates a purely programmatic vector-style poster using Pillow."""
     width, height = 1080, 1920
     
@@ -43,30 +43,59 @@ def create_tiktok_poster(title, description, top_label, output_path, is_centered
         font_footer = ImageFont.load_default()
 
     px = 100
-    y_text = 500 if is_centered else 300
-
-    # 1. Draw Top Label
-    if top_label:
-        draw.text((px, y_text), top_label, fill=(255, 200, 50), font=font_top)
+    
+    if is_last:
+        y_text = 400
+        
+        # 1. Draw Title
+        title_lines = textwrap.wrap(title, width=18)
+        for line in title_lines:
+            draw.text((px, y_text), line, fill=(255, 255, 255), font=font_title)
+            y_text += 100
+            
+        y_text += 50
+            
+        # 2. Draw Description (Disclaimer/Body)
+        if description:
+            desc_lines = textwrap.wrap(description, width=25)
+            for line in desc_lines:
+                draw.text((px, y_text), line, fill=(220, 220, 220), font=font_desc)
+                y_text += 75
+                
         y_text += 100
-
-    # 2. Draw Title
-    title_lines = textwrap.wrap(title, width=18)
-    for line in title_lines:
-        draw.text((px, y_text), line, fill=(255, 255, 255), font=font_title)
-        y_text += 100
-
-    # Draw separator line
-    y_text += 40
-    draw.line([px, y_text, px + 200, y_text], fill=(12, 136, 235), width=10)
-    y_text += 80
-
-    # 3. Draw Description
-    if description:
-        desc_lines = textwrap.wrap(description, width=28)
-        for line in desc_lines:
-            draw.text((px, y_text), line, fill=(220, 220, 220), font=font_desc)
-            y_text += 75
+        
+        # 3. Draw CTA specific to Inmibot
+        cta_text = f"Visit {branding().site}\nto get started"
+        cta_lines = cta_text.split('\n')
+        for line in cta_lines:
+            draw.text((px, y_text), line, fill=(255, 200, 50), font=font_title)
+            y_text += 100
+            
+    else:
+        y_text = 500 if is_centered else 300
+    
+        # 1. Draw Top Label
+        if top_label:
+            draw.text((px, y_text), top_label, fill=(255, 200, 50), font=font_top)
+            y_text += 100
+    
+        # 2. Draw Title
+        title_lines = textwrap.wrap(title, width=18)
+        for line in title_lines:
+            draw.text((px, y_text), line, fill=(255, 255, 255), font=font_title)
+            y_text += 100
+    
+        # Draw separator line
+        y_text += 40
+        draw.line([px, y_text, px + 200, y_text], fill=(12, 136, 235), width=10)
+        y_text += 80
+    
+        # 3. Draw Description
+        if description:
+            desc_lines = textwrap.wrap(description, width=28)
+            for line in desc_lines:
+                draw.text((px, y_text), line, fill=(220, 220, 220), font=font_desc)
+                y_text += 75
 
     # 4. Draw Footer
     draw.text((px, height - 150), branding().name, fill=(255, 255, 255), font=font_footer)
