@@ -73,6 +73,9 @@ class NarrationGenerator:
         if current_group["heading"] or current_group["paragraphs"]:
             grouped_sections.append(current_group)
             
+        # Filter out groups that have no paragraph text
+        grouped_sections = [g for g in grouped_sections if " ".join(g["paragraphs"]).strip()]
+            
         original_grouped_sections = grouped_sections[:]
         try:
             import json
@@ -100,10 +103,6 @@ class NarrationGenerator:
             heading = group["heading"]
             paragraphs_text = " ".join(group["paragraphs"])
             
-            if not paragraphs_text and heading:
-                scenes.append(Scene(spoken_text=heading, slide_title=heading, slide_body="", is_title=True))
-                continue
-                
             if not heading:
                 heading = "Puntos Clave" if lang == 'es' else "Key Points"
                 
