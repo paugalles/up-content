@@ -115,25 +115,25 @@ DO NOT include the author name, publication date, lawyer names, or firm names.
 Focus only on relevant information such as: exactly what you will find in the form, specific requirements, and exactly where to book an appointment.
 IMPORTANT: To prevent text from overflowing the slide, you MUST limit your response to MAXIMUM 4 bullet points, and each bullet point MUST be very short (under 12 words).
 If the text describes comparisons between options, costs/fees, wait times (e.g., in months), or any meaningful quantitative data, output a JSON object representing a chart that visualizes this data:
-{
+{{
   "type": "chart",
   "chart_type": "pie",
   "title": "Chart Title",
   "labels": ["Option A", "Option B"], 
   "values": [500, 800]
-}
+}}
 If the text describes a step-by-step process or a timeline, output a JSON object representing a process diagram:
-{
+{{
   "type": "process",
   "title": "Process Title",
   "steps": ["Step 1 description", "Step 2 description", "Step 3 description"]
-}
+}}
 Otherwise, output a JSON object with bullet points (MAXIMUM 4 bullets, max 12 words each):
 {{
   "type": "bullets",
   "items": [
-    {{"title": "Paso 1", "content": "Details..."}},
-    {{"title": "Paso 2", "content": "Details..."}}
+    {{"title": "Paso 1", "content": "Details here"}},
+    {{"title": "Paso 2", "content": "Details here"}}
   ]
 }}
 Write the content in the language '{lang}'. Output ONLY valid JSON."""
@@ -147,8 +147,9 @@ Write the content in the language '{lang}'. Output ONLY valid JSON."""
                     max_tokens=250
                 )
                 bullet_points = response.choices[0].message.content.strip()
-            except Exception:
-                bullet_points = "• " + paragraphs_text[:100] + "..."
+            except Exception as e:
+                print(f"Warning: Failed to generate bullets via AI: {e}")
+                bullet_points = "• " + textwrap.shorten(paragraphs_text, width=100, placeholder="")
                 
             scenes.append(Scene(spoken_text=spoken_text, slide_title=heading, slide_body=bullet_points, is_title=False))
             
