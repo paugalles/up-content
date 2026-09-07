@@ -45,7 +45,8 @@ def load_article(path: Path) -> Article:
         language = "es" if es_score > en_score else "en"
     text = re.sub(r"```.*?```", " ", body, flags=re.DOTALL)
     text = re.sub(r"!?(\[([^]]+)\])\([^)]+\)", r"\2", text)
-    text = re.sub(r"^#{1,6}\s*", "", text, flags=re.MULTILINE)
+    # Remove explicitly typed out H2: H3: etc that might come from bad AI content
+    text = re.sub(r"^(#{1,6}\s*)?H[1-6]:\s*", r"\1", text, flags=re.MULTILINE | re.IGNORECASE)
     
     # Filter out author and publication date
     lines = text.split("\n")
@@ -130,6 +131,7 @@ def fetch_article(workdir: Path, http: Http | None = None, chooser=random.choice
     parts = []
     for node in root.find_all(["h2", "h3", "p", "li"]):
         text = re.sub(r"\s+", " ", node.get_text(" ", strip=True))
+        text = re.sub(r"^H[1-6]:\s*", "", text, flags=re.IGNORECASE)
         if re.match(r"^(?:author|autor|publication date|fecha de publicaci[oó]n)\s*:", text, re.IGNORECASE):
             continue
         if len(text) >= 20:
