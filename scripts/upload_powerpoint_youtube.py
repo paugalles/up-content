@@ -185,7 +185,12 @@ def main():
         if yt_success:
             logging.info("Upload was successful. Deleting 'youtube.mp4' from Google Drive...")
             try:
-                drive.files().delete(fileId=target_video_id).execute()
+                # In standard shared folders, Editors cannot permanently delete files they don't own.
+                # Removing the parent folder effectively removes it from this shared workspace.
+                drive.files().update(
+                    fileId=target_video_id,
+                    removeParents=target_subfolder['id']
+                ).execute()
                 logging.info("Successfully deleted 'youtube.mp4' from Drive.")
             except Exception as e:
                 logging.error(f"Failed to delete 'youtube.mp4' from Drive: {e}")
