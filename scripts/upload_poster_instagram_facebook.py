@@ -142,6 +142,10 @@ def main():
         except Exception as e:
             logging.error(f"Failed to upload to Instagram: {e}")
             
+        if not ig_success:
+            logging.error("Instagram upload failed. Skipping Facebook upload and keeping files in Google Drive.")
+            sys.exit(1)
+            
         # 5. Upload to Facebook
         caption_fb = metadata.get("facebook", metadata.get("caption", ""))
         if tags and tags not in caption_fb:
