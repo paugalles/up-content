@@ -19,7 +19,7 @@ def poll(fetch, complete, label, attempts=20, delay=3, failed=lambda _: False):
     raise TimeoutError(f"Timed out waiting for {label}")
 
 
-def instagram(assets: list[Path], caption: str, http=Http()):
+def instagram(assets: list[Path], caption: str, http=Http(attempts=6)):
     env = require("INSTAGRAM_ACCOUNT_ID", "META_ACCESS_TOKEN")
     
     children = []
@@ -38,7 +38,7 @@ def instagram(assets: list[Path], caption: str, http=Http()):
             poll(lambda: http.json("GET", f"{GRAPH}/{parent}", params={"fields": "status_code", "access_token": env["META_ACCESS_TOKEN"]}), lambda x: x.get("status_code") == "FINISHED", "Instagram media", failed=lambda x: x.get("status_code") in {"ERROR", "EXPIRED"})
             
             import time
-            time.sleep(10)
+            time.sleep(20)
             return http.json("POST", f"{GRAPH}/{env['INSTAGRAM_ACCOUNT_ID']}/media_publish", data={"creation_id": parent, "access_token": env["META_ACCESS_TOKEN"]})["id"]
             
     # Carousel post (requires 2 or more images)
@@ -46,7 +46,7 @@ def instagram(assets: list[Path], caption: str, http=Http()):
     poll(lambda: http.json("GET", f"{GRAPH}/{parent}", params={"fields": "status_code", "access_token": env["META_ACCESS_TOKEN"]}), lambda x: x.get("status_code") == "FINISHED", "Instagram carousel", failed=lambda x: x.get("status_code") in {"ERROR", "EXPIRED"})
     
     import time
-    time.sleep(10)
+    time.sleep(20)
     return http.json("POST", f"{GRAPH}/{env['INSTAGRAM_ACCOUNT_ID']}/media_publish", data={"creation_id": parent, "access_token": env["META_ACCESS_TOKEN"]})["id"]
 
 def facebook(assets: list[Path], caption: str, http=Http()):
