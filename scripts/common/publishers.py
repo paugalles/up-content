@@ -28,10 +28,17 @@ def instagram(assets: list[Path], caption: str, http=Http()):
             resp = http.json("POST", "https://uguu.se/upload", files={"files[]": f})
         url = resp["files"][0]["url"]
         
-        child = http.json("POST", f"{GRAPH}/{env['INSTAGRAM_ACCOUNT_ID']}/media", data={"image_url": url, "is_carousel_item": "true", "access_token": env["META_ACCESS_TOKEN"]})["id"]
-        poll(lambda: http.json("GET", f"{GRAPH}/{child}", params={"fields": "status_code", "access_token": env["META_ACCESS_TOKEN"]}), lambda x: x.get("status_code") == "FINISHED", "Instagram child", failed=lambda x: x.get("status_code") in {"ERROR", "EXPIRED"})
-        children.append(child)
-        
+        if len(assets) > 1:
+            child = http.json("POST", f"{GRAPH}/{env['INSTAGRAM_ACCOUNT_ID']}/media", data={"image_url": url, "is_carousel_item": "true", "access_token": env["META_ACCESS_TOKEN"]})["id"]
+            poll(lambda: http.json("GET", f"{GRAPH}/{child}", params={"fields": "status_code", "access_token": env["META_ACCESS_TOKEN"]}), lambda x: x.get("status_code") == "FINISHED", "Instagram child", failed=lambda x: x.get("status_code") in {"ERROR", "EXPIRED"})
+            children.append(child)
+        else:
+            # Single image post
+            parent = http.json("POST", f"{GRAPH}/{env['INSTAGRAM_ACCOUNT_ID']}/media", data={"image_url": url, "caption": caption, "access_token": env["META_ACCESS_TOKEN"]})["id"]
+            poll(lambda: http.json("GET", f"{GRAPH}/{parent}", params={"fields": "status_code", "access_token": env["META_ACCESS_TOKEN"]}), lambda x: x.get("status_code") == "FINISHED", "Instagram media", failed=lambda x: x.get("status_code") in {"ERROR", "EXPIRED"})
+            return http.json("POST", f"{GRAPH}/{env['INSTAGRAM_ACCOUNT_ID']}/media_publish", data={"creation_id": parent, "access_token": env["META_ACCESS_TOKEN"]})["id"]
+            
+    # Carousel post (requires 2 or more images)
     parent = http.json("POST", f"{GRAPH}/{env['INSTAGRAM_ACCOUNT_ID']}/media", data={"media_type": "CAROUSEL", "children": ",".join(children), "caption": caption, "access_token": env["META_ACCESS_TOKEN"]})["id"]
     poll(lambda: http.json("GET", f"{GRAPH}/{parent}", params={"fields": "status_code", "access_token": env["META_ACCESS_TOKEN"]}), lambda x: x.get("status_code") == "FINISHED", "Instagram carousel", failed=lambda x: x.get("status_code") in {"ERROR", "EXPIRED"})
     
