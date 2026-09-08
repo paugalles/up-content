@@ -14,17 +14,17 @@ class Http:
         for attempt in range(self.attempts):
             try:
                 response = self.session.request(method, url, **kwargs)
-                if response.status_code not in {429, 500, 502, 503, 504, 400}:
+                
+                # Check for Meta's 400 Generic internal error (code -1, subcode 2207085)
+                # This needs to be checked BEFORE the standard 400 failure block.
+                is_meta_internal_error = False
+                if response.status_code == 400 and ("2207085" in response.text or "Generic internal error" in response.text):
+                    is_meta_internal_error = True
+                    
+                if response.status_code not in {429, 500, 502, 503, 504} and not is_meta_internal_error:
                     if not response.ok:
                         raise requests.exceptions.HTTPError(f"{response.status_code} Client Error: {response.reason} for url: {response.url} - Response: {response.text}", response=response)
                     return response
-                
-                # Special handling for Meta's 400 Generic internal error (code -1, subcode 2207085)
-                # It is technically a 400, but represents an internal sync issue on their end.
-                if response.status_code == 400 and "2207085" not in response.text and "Generic internal error" not in response.text:
-                     if not response.ok:
-                        raise requests.exceptions.HTTPError(f"{response.status_code} Client Error: {response.reason} for url: {response.url} - Response: {response.text}", response=response)
-                     return response
                 
                 if not response.ok:
                     if attempt + 1 == self.attempts:
