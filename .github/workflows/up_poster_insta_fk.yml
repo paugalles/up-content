@@ -1,0 +1,45 @@
+name: Upload Poster to Instagram and Facebook
+
+on:
+  workflow_dispatch:
+  # Uncomment the following lines to enable the daily schedule
+  # schedule:
+  #   - cron: '0 12 * * *' # Runs every day at 12:00 PM UTC
+
+jobs:
+  upload-poster:
+    runs-on: ubuntu-latest
+    
+    # Required for Google Cloud Workload Identity Federation
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: 'projects/309306571615/locations/global/workloadIdentityPools/github-pool/providers/github-provider'
+          service_account: 'github-deployer@project-1493a8e0-d428-41c3-a11.iam.gserviceaccount.com'
+
+      - name: Run Upload Script
+        env:
+          # Secrets and variables should be configured in your GitHub repository
+          INSTAGRAM_AND_FACEBOOK_MEDIA_FOLDER: ${{ secrets.INSTAGRAM_AND_FACEBOOK_MEDIA_FOLDER }}
+          INSTAGRAM_ACCOUNT_ID: ${{ secrets.INSTAGRAM_ACCOUNT_ID }}
+          META_ACCESS_TOKEN: ${{ secrets.META_ACCESS_TOKEN }}
+          FACEBOOK_PAGE_ACCESS_TOKEN: ${{ secrets.FACEBOOK_PAGE_ACCESS_TOKEN }}
+        run: |
+          python scripts/upload_poster_instagram_facebook.py

@@ -47,14 +47,18 @@ except Exception as e:
 # --- Pillow Helper Functions ---
 
 def get_font(size, bold=False):
-    # Try to load a nice system font on macOS (environment is darwin)
+    # Try to load the local brand fonts
+    base_path = Path(__file__).parent / "assets" / "fonts"
+    font_name = "Roboto-Bold.ttf" if bold else "Roboto-Regular.ttf"
+    font_path = base_path / font_name
+    
     try:
-        font_name = "HelveticaNeue-Bold.ttc" if bold else "HelveticaNeue.ttc"
-        return ImageFont.truetype(f"/System/Library/Fonts/{font_name}", size)
+        return ImageFont.truetype(str(font_path), size)
     except:
+        # Fallback if local font fails
         try:
-            font_name = "Arial Bold.ttf" if bold else "Arial.ttf"
-            return ImageFont.truetype(f"/Library/Fonts/{font_name}", size)
+            sys_font = "HelveticaNeue-Bold.ttc" if bold else "HelveticaNeue.ttc"
+            return ImageFont.truetype(f"/System/Library/Fonts/{sys_font}", size)
         except:
             return ImageFont.load_default()
 
@@ -110,6 +114,8 @@ def get_system_prompt(language: str):
 You are an expert Social Media Manager. Read the provided blog article and generate the content for an infographic poster.
 Generate all text in {lang_name}, matching the language of the article.
 
+The generated text MUST be highly useful and relevant. DO NOT include generic advice (e.g., "have your documentation ready", "read the instructions", or obvious filler). INSTEAD, focus ONLY on relevant and highly specific information such as: exactly what the user will find in the form, specific requirements, and exactly where to book an appointment.
+
 You MUST respond with a valid JSON object containing EXACTLY the following keys:
 {{
     "title": "A short, catchy title summarizing the article (max 6 words, in {lang_name}).",
@@ -162,14 +168,10 @@ def fetch_article_text(http: Http, url: str) -> str:
     return "\n\n".join(parts)
 
 
-def compose_poster(content_data: dict, ai_image_bytes: bytes, output_path: str):
+def compose_poster(content_data: dict, ai_image_bytes: bytes, output_path: str, existing_poster_path: str = None):
     """Composes the final 4:5 poster using Pillow."""
     # Dimensions for 4:5 aspect ratio
     W, H = 1080, 1350
-    
-    # Create empty canvas
-    canvas = Image.new("RGB", (W, H), color=BRAND_COLOR_CANVAS)
-    draw = ImageDraw.Draw(canvas)
     
     # Layout definition
     y_title_start, y_title_end = 0, 180      # ~13%
@@ -177,50 +179,61 @@ def compose_poster(content_data: dict, ai_image_bytes: bytes, output_path: str):
     y_content_start, y_content_end = 600, 1270 # ~50%
     y_footer_start, y_footer_end = 1270, 1350  # ~6%
     
+    # Create empty canvas or use existing
+    if existing_poster_path and os.path.exists(existing_poster_path):
+        canvas = Image.open(existing_poster_path).convert("RGB")
+        draw = ImageDraw.Draw(canvas)
+        # Blank out the previous text areas (top and bottom)
+        draw.rectangle([0, 0, W, y_img_start], fill=BRAND_COLOR_CANVAS)
+        draw.rectangle([0, y_img_end, W, H], fill=BRAND_COLOR_CANVAS)
+    else:
+        canvas = Image.new("RGB", (W, H), color=BRAND_COLOR_CANVAS)
+        draw = ImageDraw.Draw(canvas)
+        
+        # 2. Paste AI Image (only if not re-using an existing poster canvas)
+        if ai_image_bytes:
+            try:
+                ai_img = Image.open(io.BytesIO(ai_image_bytes)).convert("RGBA")
+                
+                # Match the generated background seamlessly with the canvas
+                canvas_rgb = hex_to_rgb(BRAND_COLOR_CANVAS)
+                
+                # Find the most common corner color to identify the AI's generated background
+                pixdata = ai_img.load()
+                width, height = ai_img.size
+                corners = [pixdata[0,0], pixdata[width-1,0], pixdata[0,height-1], pixdata[width-1,height-1]]
+                bg_color = max(set(corners), key=corners.count)
+                
+                # Safely replace all background pixels (including jpeg artifacts) with the EXACT canvas color
+                for y in range(height):
+                    for x in range(width):
+                        r, g, b, a = pixdata[x, y]
+                        if abs(r - bg_color[0]) < 25 and abs(g - bg_color[1]) < 25 and abs(b - bg_color[2]) < 25:
+                            pixdata[x, y] = (canvas_rgb[0], canvas_rgb[1], canvas_rgb[2], 255)
+                
+                ai_img = ai_img.convert("RGB")
+                
+                # Calculate maximum dimensions for the image while keeping clean margins
+                img_margin_x = 80
+                img_margin_y = 20
+                max_img_w = W - (img_margin_x * 2)
+                max_img_h = (y_img_end - y_img_start) - (img_margin_y * 2)
+                
+                # Resize the image IN PLACE to fit within the box without adding any padded borders
+                ai_img.thumbnail((max_img_w, max_img_h), Image.Resampling.LANCZOS)
+                
+                # Center the image safely in its allocated block
+                paste_x = (W - ai_img.width) // 2
+                paste_y = y_img_start + (y_img_end - y_img_start - ai_img.height) // 2
+                canvas.paste(ai_img, (paste_x, paste_y))
+            except Exception as e:
+                print(f"      [Warning] Could not paste AI image: {e}")
+
     # 1. Draw Title
     font_title = get_font(60, bold=True)
     draw_text_centered(draw, content_data.get("title", "").upper(), font_title, 
                        (0, y_title_start, W, y_title_end), BRAND_COLOR_NAVY)
-    
-    # 2. Paste AI Image
-    if ai_image_bytes:
-        try:
-            ai_img = Image.open(io.BytesIO(ai_image_bytes)).convert("RGBA")
-            
-            # Match the generated background seamlessly with the canvas
-            canvas_rgb = hex_to_rgb(BRAND_COLOR_CANVAS)
-            
-            # Find the most common corner color to identify the AI's generated background
-            pixdata = ai_img.load()
-            width, height = ai_img.size
-            corners = [pixdata[0,0], pixdata[width-1,0], pixdata[0,height-1], pixdata[width-1,height-1]]
-            bg_color = max(set(corners), key=corners.count)
-            
-            # Safely replace all background pixels (including jpeg artifacts) with the EXACT canvas color
-            for y in range(height):
-                for x in range(width):
-                    r, g, b, a = pixdata[x, y]
-                    if abs(r - bg_color[0]) < 25 and abs(g - bg_color[1]) < 25 and abs(b - bg_color[2]) < 25:
-                        pixdata[x, y] = (canvas_rgb[0], canvas_rgb[1], canvas_rgb[2], 255)
-            
-            ai_img = ai_img.convert("RGB")
-            
-            # Calculate maximum dimensions for the image while keeping clean margins
-            img_margin_x = 80
-            img_margin_y = 20
-            max_img_w = W - (img_margin_x * 2)
-            max_img_h = (y_img_end - y_img_start) - (img_margin_y * 2)
-            
-            # Resize the image IN PLACE to fit within the box without adding any padded borders
-            ai_img.thumbnail((max_img_w, max_img_h), Image.Resampling.LANCZOS)
-            
-            # Center the image safely in its allocated block
-            paste_x = (W - ai_img.width) // 2
-            paste_y = y_img_start + (y_img_end - y_img_start - ai_img.height) // 2
-            canvas.paste(ai_img, (paste_x, paste_y))
-        except Exception as e:
-            print(f"      [Warning] Could not paste AI image: {e}")
-            
+
     # 3. Draw Sections
     sections = content_data.get("sections", [])
     
@@ -240,18 +253,18 @@ def compose_poster(content_data: dict, ai_image_bytes: bytes, output_path: str):
 
     if cols == 1:
         margin_x, col_spacing = 120, 0
-        font_heading = get_font(32, bold=True)
-        font_bullet = get_font(28, bold=False)
+        font_heading = get_font(36, bold=True)
+        font_bullet = get_font(32, bold=False)
         pill_pad_x, pill_pad_y = 40, 16
     elif cols == 2:
-        margin_x, col_spacing = 80, 40
-        font_heading = get_font(26, bold=True)
-        font_bullet = get_font(22, bold=False)
+        margin_x, col_spacing = 60, 40
+        font_heading = get_font(30, bold=True)
+        font_bullet = get_font(26, bold=False)
         pill_pad_x, pill_pad_y = 24, 14
     else: # cols == 3
         margin_x, col_spacing = 40, 30
-        font_heading = get_font(22, bold=True)
-        font_bullet = get_font(20, bold=False)
+        font_heading = get_font(24, bold=True)
+        font_bullet = get_font(22, bold=False)
         pill_pad_x, pill_pad_y = 16, 12
         
     row_spacing = 30 if rows > 1 else 0
@@ -302,9 +315,9 @@ def compose_poster(content_data: dict, ai_image_bytes: bytes, output_path: str):
         
         for bline, is_first in bullets_text_lines:
             if is_first and bullets_text_lines.index((bline, is_first)) != 0:
-                bullet_y += 12 # extra space between bullets
+                bullet_y += 18 # extra space between bullets
             draw.text((block_x, bullet_y), bline, font=font_bullet, fill=BRAND_COLOR_TEXT)
-            bullet_y += font_bullet.getbbox(bline)[3] - font_bullet.getbbox(bline)[1] + 8
+            bullet_y += font_bullet.getbbox(bline)[3] - font_bullet.getbbox(bline)[1] + 12
 
     # 4. Draw Footer
     font_footer = get_font(36, bold=True)
@@ -315,7 +328,7 @@ def compose_poster(content_data: dict, ai_image_bytes: bytes, output_path: str):
     canvas.save(output_path, quality=95)
 
 
-def generate_assets_for_blog(blog_id: str, blog_content: str, language: str, output_dir: str):
+def generate_assets_for_blog(blog_id: str, blog_content: str, language: str, output_dir: str, overwrite_copy: bool = False):
     print(f"\n⏳ Processing Blog: {blog_id} ({language})...")
     
     lang_output_dir = os.path.join(output_dir, language)
@@ -323,8 +336,9 @@ def generate_assets_for_blog(blog_id: str, blog_content: str, language: str, out
     
     poster_filename = os.path.join(lang_output_dir, f"{blog_id}_poster.jpg")
     json_filename = os.path.join(lang_output_dir, f"{blog_id}_social_copy.json")
+    illustration_filename = os.path.join(lang_output_dir, f"{blog_id}_illustration.jpg")
     
-    if os.path.exists(poster_filename) and os.path.exists(json_filename):
+    if not overwrite_copy and os.path.exists(poster_filename) and os.path.exists(json_filename):
         print(f"  ⏭️  Skipping: Assets already generated for {blog_id}.")
         return
         
@@ -346,44 +360,60 @@ def generate_assets_for_blog(blog_id: str, blog_content: str, language: str, out
             json.dump(content_data, f, indent=4, ensure_ascii=False)
         print(f"  ✅ Saved structure to {json_filename}")
 
-        print("  - Generating illustration (gemini-2.5-flash-image)...")
-        imagen_prompt = content_data["image_prompt"]
         image_bytes = None
-        
-        try:
-            # We use 16:9 so it nicely fits the wide horizontal slot of the poster (1080x338)
-            image_response = client.models.generate_content(
-                model='gemini-2.5-flash-image',
-                contents=imagen_prompt,
-                config=types.GenerateContentConfig(
-                    response_modalities=["IMAGE"],
-                    image_config=types.ImageConfig(
-                        aspect_ratio="16:9"
+        existing_poster = None
+        if overwrite_copy:
+            if os.path.exists(illustration_filename):
+                print("  - Re-using existing illustration...")
+                with open(illustration_filename, "rb") as f:
+                    image_bytes = f.read()
+            elif os.path.exists(poster_filename):
+                print("  - Re-using image from existing poster canvas...")
+                existing_poster = poster_filename
+                
+        if not image_bytes and not existing_poster:
+            print("  - Generating illustration (gemini-2.5-flash-image)...")
+            imagen_prompt = content_data["image_prompt"]
+            try:
+                # We use 16:9 so it nicely fits the wide horizontal slot of the poster (1080x338)
+                image_response = client.models.generate_content(
+                    model='gemini-2.5-flash-image',
+                    contents=imagen_prompt,
+                    config=types.GenerateContentConfig(
+                        response_modalities=["IMAGE"],
+                        image_config=types.ImageConfig(
+                            aspect_ratio="16:9"
+                        )
                     )
                 )
-            )
-            
-            if image_response.candidates and image_response.candidates[0].content.parts:
-                for part in image_response.candidates[0].content.parts:
-                    if part.inline_data:
-                        image_bytes = part.inline_data.data
-                        break 
-            
-            if not image_bytes:
-                print(f"  ⚠️  Model responded but no image was found in the output.")
                 
-        except Exception as img_err:
-            print(f"  ⚠️  Failed to generate image: {img_err}")
+                if image_response.candidates and image_response.candidates[0].content.parts:
+                    for part in image_response.candidates[0].content.parts:
+                        if part.inline_data:
+                            image_bytes = part.inline_data.data
+                            with open(illustration_filename, "wb") as f:
+                                f.write(image_bytes)
+                            break 
+                
+                if not image_bytes:
+                    print(f"  ⚠️  Model responded but no image was found in the output.")
+                    
+            except Exception as img_err:
+                print(f"  ⚠️  Failed to generate image: {img_err}")
 
         # Programmatically compose the final poster
         print("  - Composing final poster with Pillow...")
-        compose_poster(content_data, image_bytes, poster_filename)
+        compose_poster(content_data, image_bytes, poster_filename, existing_poster)
         print(f"  ✅ Saved composed poster to {poster_filename}")
 
     except Exception as e:
         print(f"  ❌ Error processing {blog_id}: {e}")
 
 if __name__ == "__main__":
+    import argparse
+    parser = argparse.ArgumentParser(description="Generate posters for blog articles.")
+    parser.add_argument("--overwrite-copy", action="store_true", help="Overwrite generated text but keep and re-use existing images.")
+    args = parser.parse_args()
     
     OUTPUT_FOLDER = os.path.join("generated", "posters")
     SITEMAP_URL = f"{ARTICLE_BASE_URL.rstrip('/')}/sitemap.xml"
@@ -391,21 +421,37 @@ if __name__ == "__main__":
     print("🚀 Starting Batch Generation for all articles...")
     http = Http()
     
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
+    def process_url(url, language, output_folder, overwrite_copy):
+        try:
+            parsed_path = urlparse(url).path
+            blog_id = parsed_path.strip("/").split("/")[-1]
+            
+            # Using a fresh Http instance might be safer for threads
+            local_http = Http()
+            content = fetch_article_text(local_http, url)
+            if not content or len(content) < 200:
+                print(f"  ⚠️  Skipping {url}: insufficient content extracted.")
+                return
+                
+            generate_assets_for_blog(blog_id, content, language, output_folder, overwrite_copy=overwrite_copy)
+        except Exception as e:
+            print(f"  ❌ Error in thread for {url}: {e}")
+
+    tasks = []
     for language in ["en", "es"]:
         print(f"\n--- Fetching {language.upper()} URLs from {SITEMAP_URL} ---")
         urls = discover_urls(SITEMAP_URL, language, http)
         print(f"Found {len(urls)} URLs for {language}.")
         
         for url in urls:
-            parsed_path = urlparse(url).path
-            blog_id = parsed_path.strip("/").split("/")[-1]
+            tasks.append((url, language))
             
-            content = fetch_article_text(http, url)
-            if not content or len(content) < 200:
-                print(f"  ⚠️  Skipping {url}: insufficient content extracted.")
-                continue
-                
-            generate_assets_for_blog(blog_id, content, language, OUTPUT_FOLDER)
-            time.sleep(2)
+    print(f"\n🚀 Processing {len(tasks)} articles concurrently (10 workers)...")
+    with ThreadPoolExecutor(max_workers=10) as executor:
+        futures = [executor.submit(process_url, url, lang, OUTPUT_FOLDER, args.overwrite_copy) for url, lang in tasks]
+        for future in as_completed(futures):
+            pass # wait for all to finish
             
     print(f"\n🎉 Batch generation complete! Check the '{OUTPUT_FOLDER}' folder.")
