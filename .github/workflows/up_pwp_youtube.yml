@@ -1,0 +1,47 @@
+name: Upload PowerPoint to YouTube
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Spain is UTC+1 (Winter/CET) and UTC+2 (Summer/CEST).
+    # 07:00 UTC -> 08:00 CET / 09:00 CEST (Morning)
+    # 12:00 UTC -> 13:00 CET / 14:00 CEST (Lunch time)
+    # 18:00 UTC -> 19:00 CET / 20:00 CEST (Evening)
+    - cron: '0 7,12,18 * * *'
+
+jobs:
+  upload-powerpoint:
+    runs-on: ubuntu-latest
+    
+    # Required for Google Cloud Workload Identity Federation
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: 'projects/309306571615/locations/global/workloadIdentityPools/github-pool/providers/github-provider'
+          service_account: 'github-deployer@project-1493a8e0-d428-41c3-a11.iam.gserviceaccount.com'
+
+      - name: Run Upload Script
+        env:
+          YOUTUBE_MEDIA_FOLDER: ${{ secrets.YOUTUBE_MEDIA_FOLDER }}
+          YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
+          YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
+          YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
+        run: |
+          python scripts/upload_powerpoint_youtube.py
