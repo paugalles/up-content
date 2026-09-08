@@ -29,31 +29,6 @@ def load_env():
                         key, value = line.split("=", 1)
                         os.environ.setdefault(key.strip(), value.strip().strip("'\""))
 
-def parse_metadata(md_content):
-    import re
-    parts = re.split(r'##\s*(?:Para LinkedIn|LinkedIn Post|Para LinkedIn:|LinkedIn Post:).*', md_content, flags=re.IGNORECASE)
-    yt_part = parts[0]
-    
-    title_match = re.search(r'\*\*(?:Título|Título del Video|Título Sugerido para el Video|Title|Video Title).*?\*\*\s*(.*)', yt_part, re.IGNORECASE)
-    title = title_match.group(1).strip() if title_match else ""
-    
-    desc_match = re.search(r'(?:\*\*(?:Descripción|Description).*?\*\*|###\s*(?:Descripción del Video:|Description:?))\s*(.*?)(?=\n---|(?:\*\*|###)\s*(?:Capítulos|Hashtags|#Hashtags)|\Z)', yt_part, re.IGNORECASE | re.DOTALL)
-    description = desc_match.group(1).strip() if desc_match else ""
-    
-    chapters_match = re.search(r'(?:\*\*(?:Capítulos|Capítulos del Video|Chapters).*?\*\*|###\s*(?:Capítulos|Chapters:?))\s*(.*?)(?=\n---|(?:\*\*|###)\s*(?:Hashtags|#Hashtags)|\Z)', yt_part, re.IGNORECASE | re.DOTALL)
-    if chapters_match:
-        description += "\n\nCapítulos:\n" + chapters_match.group(1).strip()
-    
-    hashtags_match = re.search(r'(?:\*\*(?:Hashtags|#Hashtags).*?\*\*|###\s*(?:Hashtags|#Hashtags:?))\s*(.*?)(?=\n---|##\s*LinkedIn|\Z)', yt_part, re.IGNORECASE | re.DOTALL)
-    hashtags_text = hashtags_match.group(1).strip() if hashtags_match else ""
-    hashtags = [tag.strip() for tag in hashtags_text.split() if tag.startswith("#")]
-    
-    return {
-        "title": title,
-        "caption": description,
-        "hashtags": hashtags
-    }
-
 def main():
     load_env()
     
@@ -115,7 +90,7 @@ def main():
     target_metadata_id = None
     target_subfolder = None
     
-    # Find a subfolder that has both youtube.mp4 and metadata.md
+    # Find a subfolder that has both youtube.mp4 and metadata.json
     for subfolder in subfolders:
         res = drive.files().list(
             q=f"'{subfolder['id']}' in parents",
@@ -124,7 +99,7 @@ def main():
         files = res.get("files", [])
         
         video_id = next((f["id"] for f in files if f["name"] == "youtube.mp4"), None)
-        meta_id = next((f["id"] for f in files if f["name"] == "metadata.md"), None)
+        meta_id = next((f["id"] for f in files if f["name"] == "metadata.json"), None)
         
         if video_id and meta_id:
             target_video_id = video_id
@@ -133,7 +108,7 @@ def main():
             break
             
     if not target_video_id or not target_metadata_id:
-        logging.error("Could not find any subfolder with both 'youtube.mp4' and 'metadata.md'.")
+        logging.error("Could not find any subfolder with both 'youtube.mp4' and 'metadata.json'.")
         sys.exit(1)
         
     logging.info(f"Selected subfolder '{target_subfolder['name']}' with video and metadata.")
@@ -143,10 +118,10 @@ def main():
         tmp_path = Path(tmpdir)
         
         video_path = tmp_path / "youtube.mp4"
-        meta_path = tmp_path / "metadata.md"
+        meta_path = tmp_path / "metadata.json"
         
         for name, file_id, path in [("youtube.mp4", target_video_id, video_path), 
-                                    ("metadata.md", target_metadata_id, meta_path)]:
+                                    ("metadata.json", target_metadata_id, meta_path)]:
             logging.info(f"Downloading {name}...")
             try:
                 request = drive.files().get_media(fileId=file_id)
@@ -160,14 +135,19 @@ def main():
                 logging.error(f"Failed to download {name}: {e}")
                 sys.exit(1)
                 
-        # Parse metadata
+        # Parse JSON metadata
         with open(meta_path, "r", encoding="utf-8") as f:
-            md_content = f.read()
+            meta_json = json.load(f)
             
-        content = parse_metadata(md_content)
+        yt_meta = meta_json.get("youtube", {})
+        content = {
+            "title": yt_meta.get("title", ""),
+            "caption": yt_meta.get("description", ""),
+            "hashtags": yt_meta.get("tags", [])
+        }
         
         if not content["title"] or not content["caption"]:
-            logging.error("Failed to parse 'title' or 'caption' from metadata.md.")
+            logging.error("Failed to parse 'title' or 'description' from metadata.json.")
             sys.exit(1)
             
         logging.info(f"Parsed metadata. Title: '{content['title'][:50]}...'")
