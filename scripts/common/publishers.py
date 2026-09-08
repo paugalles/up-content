@@ -36,14 +36,16 @@ def instagram(assets: list[Path], caption: str, http=Http()):
             # Single image post
             parent = http.json("POST", f"{GRAPH}/{env['INSTAGRAM_ACCOUNT_ID']}/media", data={"image_url": url, "caption": caption, "access_token": env["META_ACCESS_TOKEN"]})["id"]
             poll(lambda: http.json("GET", f"{GRAPH}/{parent}", params={"fields": "status_code", "access_token": env["META_ACCESS_TOKEN"]}), lambda x: x.get("status_code") == "FINISHED", "Instagram media", failed=lambda x: x.get("status_code") in {"ERROR", "EXPIRED"})
+            import time
+            time.sleep(5)
             return http.json("POST", f"{GRAPH}/{env['INSTAGRAM_ACCOUNT_ID']}/media_publish", data={"creation_id": parent, "access_token": env["META_ACCESS_TOKEN"]})["id"]
             
     # Carousel post (requires 2 or more images)
     parent = http.json("POST", f"{GRAPH}/{env['INSTAGRAM_ACCOUNT_ID']}/media", data={"media_type": "CAROUSEL", "children": ",".join(children), "caption": caption, "access_token": env["META_ACCESS_TOKEN"]})["id"]
     poll(lambda: http.json("GET", f"{GRAPH}/{parent}", params={"fields": "status_code", "access_token": env["META_ACCESS_TOKEN"]}), lambda x: x.get("status_code") == "FINISHED", "Instagram carousel", failed=lambda x: x.get("status_code") in {"ERROR", "EXPIRED"})
-    
+    import time
+    time.sleep(5)
     return http.json("POST", f"{GRAPH}/{env['INSTAGRAM_ACCOUNT_ID']}/media_publish", data={"creation_id": parent, "access_token": env["META_ACCESS_TOKEN"]})["id"]
-
 
 def facebook(assets: list[Path], caption: str, http=Http()):
     env = require("FACEBOOK_PAGE_ACCESS_TOKEN")
