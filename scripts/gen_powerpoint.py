@@ -4,6 +4,7 @@ import sys
 import re
 import json
 import asyncio
+import concurrent.futures
 from pathlib import Path
 from urllib.parse import urlparse
 from collections import namedtuple
@@ -305,46 +306,30 @@ def process_article(url, lang, http):
         print(f"Error parsing {url}: {e}")
         return None
 
-def main():
-    try:
-        client = genai.Client(vertexai=True, location="us-central1")
-    except Exception as e:
-        print("Failed to initialize Google Cloud. Did you run 'gcloud auth application-default login'?")
-        raise e
+def process_single_url(lang, url, output_base, client, http):
+    slug = urlparse(url).path.strip('/').split('/')[-1]
+    if not slug:
+        slug = "index"
     
-    http = Http()
-    sitemap_url = "https://inmibot.es/sitemap.xml"
-    urls_es = discover_urls(sitemap_url, "es", http)
-    urls_en = discover_urls(sitemap_url, "en", http)
+    out_dir = output_base / lang / slug
+    out_dir.mkdir(parents=True, exist_ok=True)
     
-    output_base = Path("generated/powerpoints")
+    pptx_path = out_dir / f"{slug}.pptx"
+    video_path = out_dir / "youtube.mp4"
+    meta_path = out_dir / "metadata.md"
     
-    all_urls = [("es", u) for u in urls_es] + [("en", u) for u in urls_en]
-    
-    for lang, url in all_urls:
-        slug = urlparse(url).path.strip('/').split('/')[-1]
-        if not slug:
-            slug = "index"
+    if pptx_path.exists() and video_path.exists() and meta_path.exists():
+        print(f"Skipping {url}, already exists.")
+        return
         
-        out_dir = output_base / lang / slug
-        out_dir.mkdir(parents=True, exist_ok=True)
+    print(f"Processing {url}")
+    article_text = process_article(url, lang, http)
+    if not article_text:
+        print(f"Could not extract text for {url}")
+        return
         
-        pptx_path = out_dir / f"{slug}.pptx"
-        video_path = out_dir / "youtube.mp4"
-        meta_path = out_dir / "metadata.md"
-        
-        if pptx_path.exists() and video_path.exists() and meta_path.exists():
-            print(f"Skipping {url}, already exists.")
-            continue
-            
-        print(f"Processing {url}")
-        article_text = process_article(url, lang, http)
-        if not article_text:
-            print(f"Could not extract text for {url}")
-            continue
-            
-        cta = cta_es if lang == "es" else cta_en
-        prompt = f"""
+    cta = cta_es if lang == "es" else cta_en
+    prompt = f"""
 Generate a PowerPoint presentation structure based on this article.
 The language of the presentation must be exactly the same as the article ({lang}).
 
@@ -367,117 +352,142 @@ Respond ONLY with this JSON structure:
   "ending_slide": {{"spoken_text": "{cta}"}}
 }}
 """
+    try:
+        resp = client.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                response_mime_type="application/json",
+            )
+        )
+        # Find json block
+        m = re.search(r'\{.*\}', resp.text, re.DOTALL)
+        if not m:
+            print(f"Failed to parse JSON for {url}")
+            return
+        slides_data = json.loads(m.group(0))
+    except Exception as e:
+        print(f"Error generating text for {url}: {e}")
+        return
+        
+    images_dir = out_dir / "assets"
+    images_dir.mkdir(exist_ok=True)
+    
+    # Generate title image
+    title_img_prompt = slides_data.get("title_slide", {}).get("image_prompt", "")
+    if title_img_prompt:
+        title_img_prompt += f" A prompt for an AI image generator to create an illustration ONLY. ABSOLUTELY NO TEXT, NO WORDS, NO LETTERS, NO NUMBERS inside the image. It must be a flat, clean illustration relevant to the article. The background MUST be a completely solid, uniform, untextured fill of exact hex color {brand_canvas}. Use {brand_navy} and {brand_blue} for the illustration accents."
         try:
-            resp = client.models.generate_content(
-                model='gemini-2.5-flash',
-                contents=prompt,
+            title_img_resp = client.models.generate_content(
+                model='gemini-2.5-flash-image',
+                contents=title_img_prompt,
                 config=types.GenerateContentConfig(
-                    response_mime_type="application/json",
-                )
-            )
-            # Find json block
-            m = re.search(r'\{.*\}', resp.text, re.DOTALL)
-            if not m:
-                print(f"Failed to parse JSON for {url}")
-                continue
-            slides_data = json.loads(m.group(0))
-        except Exception as e:
-            print(f"Error generating text for {url}: {e}")
-            continue
-            
-        images_dir = out_dir / "assets"
-        images_dir.mkdir(exist_ok=True)
-        
-        # Generate title image
-        title_img_prompt = slides_data.get("title_slide", {}).get("image_prompt", "")
-        if title_img_prompt:
-            title_img_prompt += f" A prompt for an AI image generator to create an illustration ONLY. ABSOLUTELY NO TEXT, NO WORDS, NO LETTERS, NO NUMBERS inside the image. It must be a flat, clean illustration relevant to the article. The background MUST be a completely solid, uniform, untextured fill of exact hex color {brand_canvas}. Use {brand_navy} and {brand_blue} for the illustration accents."
-            try:
-                title_img_resp = client.models.generate_content(
-                    model='gemini-2.5-flash-image',
-                    contents=title_img_prompt,
-                    config=types.GenerateContentConfig(
-                        response_modalities=["IMAGE"],
-                        image_config=types.ImageConfig(
-                            aspect_ratio="3:4"
-                        )
+                    response_modalities=["IMAGE"],
+                    image_config=types.ImageConfig(
+                        aspect_ratio="3:4"
                     )
                 )
-                title_img_path = images_dir / "title_img.png"
-                title_image_bytes = None
-                if title_img_resp.candidates and title_img_resp.candidates[0].content.parts:
-                    for part in title_img_resp.candidates[0].content.parts:
-                        if part.inline_data:
-                            title_image_bytes = part.inline_data.data
-                            break
-                if title_image_bytes:
-                    with open(title_img_path, "wb") as f:
-                        f.write(title_image_bytes)
-            except Exception as e:
-                print(f"Error generating title image for {url}: {e}")
-        
-        for i, c_data in enumerate(slides_data.get("content_slides", [])):
-            img_prompt = c_data.get("image_prompt", "") + f" A prompt for an AI image generator to create an illustration ONLY. ABSOLUTELY NO TEXT, NO WORDS, NO LETTERS, NO NUMBERS inside the image. It must be a flat, clean illustration relevant to the article. The background MUST be a completely solid, uniform, untextured fill of exact hex color {brand_canvas}. Use {brand_navy} and {brand_blue} for the illustration accents."
-            try:
-                img_resp = client.models.generate_content(
-                    model='gemini-2.5-flash-image',
-                    contents=img_prompt,
-                    config=types.GenerateContentConfig(
-                        response_modalities=["IMAGE"],
-                        image_config=types.ImageConfig(
-                            aspect_ratio="3:4"
-                        )
+            )
+            title_img_path = images_dir / "title_img.png"
+            title_image_bytes = None
+            if title_img_resp.candidates and title_img_resp.candidates[0].content.parts:
+                for part in title_img_resp.candidates[0].content.parts:
+                    if part.inline_data:
+                        title_image_bytes = part.inline_data.data
+                        break
+            if title_image_bytes:
+                with open(title_img_path, "wb") as f:
+                    f.write(title_image_bytes)
+        except Exception as e:
+            print(f"Error generating title image for {url}: {e}")
+    
+    for i, c_data in enumerate(slides_data.get("content_slides", [])):
+        img_prompt = c_data.get("image_prompt", "") + f" A prompt for an AI image generator to create an illustration ONLY. ABSOLUTELY NO TEXT, NO WORDS, NO LETTERS, NO NUMBERS inside the image. It must be a flat, clean illustration relevant to the article. The background MUST be a completely solid, uniform, untextured fill of exact hex color {brand_canvas}. Use {brand_navy} and {brand_blue} for the illustration accents."
+        try:
+            img_resp = client.models.generate_content(
+                model='gemini-2.5-flash-image',
+                contents=img_prompt,
+                config=types.GenerateContentConfig(
+                    response_modalities=["IMAGE"],
+                    image_config=types.ImageConfig(
+                        aspect_ratio="3:4"
                     )
                 )
-                img_path = images_dir / f"content_img_{i}.png"
-                image_bytes = None
-                if img_resp.candidates and img_resp.candidates[0].content.parts:
-                    for part in img_resp.candidates[0].content.parts:
-                        if part.inline_data:
-                            image_bytes = part.inline_data.data
-                            break
-                if image_bytes:
-                    with open(img_path, "wb") as f:
-                        f.write(image_bytes)
-                else:
-                    print(f"No image bytes returned for slide {i} of {url}")
-            except Exception as e:
-                print(f"Error generating image for slide {i} of {url}: {e}")
-                
-        slide_images_dir = out_dir / "slides"
-        slide_images_dir.mkdir(exist_ok=True)
-        
-        try:
-            scenes = create_pptx_and_images(slides_data, images_dir, pptx_path, slide_images_dir)
-        except Exception as e:
-            print(f"Error creating PPTX for {url}: {e}")
-            continue
-            
-        audio_path = out_dir / "narration.mp3"
-        try:
-            asyncio.run(EdgeTTSProvider({"language": lang}).generate(" ".join(s.spoken_text for s in scenes), str(audio_path)))
-            
-            vc = VideoComposer({
-                "video": {"resolution": (1920, 1080), "fps": 24}, 
-                "branding": {"logo_path": os.getenv("BRAND_LOGO_PATH") or "scripts/assets/brand/logo.png"}, 
-                "music": {"folder": "scripts/assets/music", "volume": 0.2, "fade_duration": 2}
-            })
-            vc.compose(str(audio_path), str(slide_images_dir), scenes, str(video_path))
-        except Exception as e:
-            print(f"Error creating video for {url}: {e}")
-            
-        # Metadata
-        meta_prompt = f"Generate a YouTube description and LinkedIn post for the following presentation. Language: {lang}.\n\nSlides: {json.dumps(slides_data)}\n\nInclude appropriate hashtags."
-        try:
-            meta_resp = client.models.generate_content(
-                model='gemini-2.5-flash',
-                contents=meta_prompt
             )
-            meta_path.write_text(meta_resp.text, encoding="utf-8")
+            img_path = images_dir / f"content_img_{i}.png"
+            image_bytes = None
+            if img_resp.candidates and img_resp.candidates[0].content.parts:
+                for part in img_resp.candidates[0].content.parts:
+                    if part.inline_data:
+                        image_bytes = part.inline_data.data
+                        break
+            if image_bytes:
+                with open(img_path, "wb") as f:
+                    f.write(image_bytes)
+            else:
+                print(f"No image bytes returned for slide {i} of {url}")
         except Exception as e:
-            print(f"Error generating metadata for {url}: {e}")
+            print(f"Error generating image for slide {i} of {url}: {e}")
             
-        print(f"Successfully processed {url}")
+    slide_images_dir = out_dir / "slides"
+    slide_images_dir.mkdir(exist_ok=True)
+    
+    try:
+        scenes = create_pptx_and_images(slides_data, images_dir, pptx_path, slide_images_dir)
+    except Exception as e:
+        print(f"Error creating PPTX for {url}: {e}")
+        return
+        
+    audio_path = out_dir / "narration.mp3"
+    try:
+        asyncio.run(EdgeTTSProvider({"language": lang}).generate(" ".join(s.spoken_text for s in scenes), str(audio_path)))
+        
+        vc = VideoComposer({
+            "video": {"resolution": (1920, 1080), "fps": 24}, 
+            "branding": {"logo_path": os.getenv("BRAND_LOGO_PATH") or "scripts/assets/brand/logo.png"}, 
+            "music": {"folder": "scripts/assets/music", "volume": 0.2, "fade_duration": 2}
+        })
+        vc.compose(str(audio_path), str(slide_images_dir), scenes, str(video_path))
+    except Exception as e:
+        print(f"Error creating video for {url}: {e}")
+        
+    # Metadata
+    meta_prompt = f"Generate a YouTube description and LinkedIn post for the following presentation. Language: {lang}.\n\nSlides: {json.dumps(slides_data)}\n\nInclude appropriate hashtags."
+    try:
+        meta_resp = client.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=meta_prompt
+        )
+        meta_path.write_text(meta_resp.text, encoding="utf-8")
+    except Exception as e:
+        print(f"Error generating metadata for {url}: {e}")
+        
+    print(f"Successfully processed {url}")
+
+
+def main():
+    try:
+        client = genai.Client(vertexai=True, location="us-central1")
+    except Exception as e:
+        print("Failed to initialize Google Cloud. Did you run 'gcloud auth application-default login'?")
+        raise e
+    
+    http = Http()
+    sitemap_url = "https://inmibot.es/sitemap.xml"
+    urls_es = discover_urls(sitemap_url, "es", http)
+    urls_en = discover_urls(sitemap_url, "en", http)
+    
+    output_base = Path("generated/powerpoints")
+    
+    all_urls = [("es", u) for u in urls_es] + [("en", u) for u in urls_en]
+    
+    max_workers = 5
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = [
+            executor.submit(process_single_url, lang, url, output_base, client, http) 
+            for lang, url in all_urls
+        ]
+        concurrent.futures.wait(futures)
 
 if __name__ == "__main__":
     main()
