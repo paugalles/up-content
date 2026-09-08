@@ -25,8 +25,8 @@ def instagram(assets: list[Path], caption: str, http=Http()):
     children = []
     for path in assets:
         with path.open("rb") as f:
-            resp = http.json("POST", "https://uguu.se/upload", files={"files[]": f})
-        url = resp["files"][0]["url"]
+            resp = http.request("POST", "https://catbox.moe/user/api.php", data={"reqtype": "fileupload"}, files={"fileToUpload": f})
+        url = resp.text.strip()
         
         if len(assets) > 1:
             child = http.json("POST", f"{GRAPH}/{env['INSTAGRAM_ACCOUNT_ID']}/media", data={"image_url": url, "is_carousel_item": "true", "access_token": env["META_ACCESS_TOKEN"]})["id"]
@@ -56,8 +56,8 @@ def facebook(assets: list[Path], caption: str, http=Http()):
         # Instead of `files`, upload the image via a presigned-like temporary URL to bypass multipart quirks,
         # or we can use the same temporary upload server `uguu.se` that the instagram publisher is using.
         with path.open("rb") as f:
-            resp = http.json("POST", "https://uguu.se/upload", files={"files[]": f})
-        url = resp["files"][0]["url"]
+            resp = http.request("POST", "https://catbox.moe/user/api.php", data={"reqtype": "fileupload"}, files={"fileToUpload": f})
+        url = resp.text.strip()
         
         # Now submit the URL directly to Facebook using `/me/photos` to avoid ID resolution errors
         resp = http.json("POST", f"{GRAPH}/me/photos", data={"url": url, "published": "false", "access_token": env["FACEBOOK_PAGE_ACCESS_TOKEN"]})
@@ -71,8 +71,8 @@ def facebook_video(asset: Path, caption: str, http=Http()):
     env = require("FACEBOOK_PAGE_ACCESS_TOKEN")
     
     with asset.open("rb") as f:
-        resp = http.json("POST", "https://uguu.se/upload", files={"files[]": f})
-    url = resp["files"][0]["url"]
+        resp = http.request("POST", "https://catbox.moe/user/api.php", data={"reqtype": "fileupload"}, files={"fileToUpload": f})
+    url = resp.text.strip()
     
     resp = http.json("POST", f"{GRAPH}/me/videos", data={
         "file_url": url, 
