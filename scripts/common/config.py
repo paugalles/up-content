@@ -46,6 +46,6 @@ def branding() -> Branding:
 
 
 TIMEOUT = float(os.getenv("REQUEST_TIMEOUT") or "30")
-GRAPH = os.getenv("META_GRAPH_API") or "https://graph.facebook.com/v23.0"
+GRAPH = os.getenv("META_GRAPH_API") or "https://graph.facebook.com/v26.0"
 TIKTOK = "https://open.tiktokapis.com/v2"
 LINKEDIN = "https://api.linkedin.com"
