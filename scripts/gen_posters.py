@@ -89,15 +89,17 @@ def draw_text_centered(draw, text, font, box, fill):
     for line in text.split('\n'):
         lines.extend(textwrap_text(line, font, w - 80))
         
-    line_heights = [font.getbbox(line)[3] - font.getbbox(line)[1] for line in lines]
-    total_height = sum(line_heights) + 15 * (len(lines) - 1)
+    ascent, descent = font.getmetrics()
+    line_height = ascent + descent + 5 # standard line height plus minor padding
+    
+    total_height = line_height * len(lines)
     
     current_y = y1 + (h - total_height) / 2
-    for line, lh in zip(lines, line_heights):
+    for line in lines:
         lw = font.getbbox(line)[2] - font.getbbox(line)[0]
         current_x = x1 + (w - lw) / 2
         draw.text((current_x, current_y), line, font=font, fill=fill)
-        current_y += lh + 15
+        current_y += line_height
 
 
 # --- Prompt Generation ---
@@ -134,9 +136,9 @@ You MUST respond with a valid JSON object containing EXACTLY the following keys:
     "tags": "#List #Of #Relevant #Hashtags (in {lang_name})"
 }}
 
-CRITICAL: You MUST provide EXACTLY 2, 3, 4, or 6 sections in the "sections" array. 
-CRITICAL: You MUST provide a STRICT MAXIMUM of 3 or 4 bullets per section.
-If 2 sections, they will be stacked vertically. If 3, they will be arranged in a 1x3 row. If 4, a 2x2 grid. If 6, a 3x2 grid. Keep bullet points very concise.
+CRITICAL: You MUST provide EXACTLY 4 sections in the "sections" array (3 is acceptable if content is very short). 
+CRITICAL: You MUST provide a STRICT MAXIMUM of 3 bullets per section.
+A 2x2 grid (4 sections) looks best. Keep bullet points extremely concise.
 """
 
 def fetch_article_text(http: Http, url: str) -> str:
@@ -174,9 +176,9 @@ def compose_poster(content_data: dict, ai_image_bytes: bytes, output_path: str, 
     W, H = 1080, 1350
     
     # Layout definition
-    y_title_start, y_title_end = 0, 180      # ~13%
-    y_img_start, y_img_end = 180, 600        # ~31%
-    y_content_start, y_content_end = 600, 1270 # ~50%
+    y_title_start, y_title_end = 50, 200      # Added 50px top padding so title doesn't touch the edge
+    y_img_start, y_img_end = 200, 620         # Shifted image down slightly
+    y_content_start, y_content_end = 650, 1270 # Shifted content down to breathe
     y_footer_start, y_footer_end = 1270, 1350  # ~6%
     
     # Create empty canvas or use existing
@@ -184,8 +186,11 @@ def compose_poster(content_data: dict, ai_image_bytes: bytes, output_path: str, 
         canvas = Image.open(existing_poster_path).convert("RGB")
         draw = ImageDraw.Draw(canvas)
         # Blank out the previous text areas (top and bottom)
-        draw.rectangle([0, 0, W, y_img_start], fill=BRAND_COLOR_CANVAS)
-        draw.rectangle([0, y_img_end, W, H], fill=BRAND_COLOR_CANVAS)
+        # The AI image was previously pasted with a max height of 380, centered in [180, 600].
+        # That means it NEVER started above y=200 and NEVER ended below y=580.
+        # We can safely blank [0, 200] and [580, H] to perfectly erase old titles and content!
+        draw.rectangle([0, 0, W, 200], fill=BRAND_COLOR_CANVAS)
+        draw.rectangle([0, 580, W, H], fill=BRAND_COLOR_CANVAS)
     else:
         canvas = Image.new("RGB", (W, H), color=BRAND_COLOR_CANVAS)
         draw = ImageDraw.Draw(canvas)
@@ -240,32 +245,25 @@ def compose_poster(content_data: dict, ai_image_bytes: bytes, output_path: str, 
     num_sec = len(sections)
     
     if num_sec <= 2:
-        cols, rows = 1, 2
-        sections = sections[:2]
+        cols, rows = 1, num_sec
     elif num_sec == 3:
-        cols, rows = 3, 1
+        cols, rows = 1, 3
     elif num_sec == 4:
         cols, rows = 2, 2
-        sections = sections[:4]
     else:
-        cols, rows = 3, 2
+        cols, rows = 2, 3
         sections = sections[:6]
 
     if cols == 1:
-        margin_x, col_spacing = 120, 0
-        font_heading = get_font(36, bold=True)
+        margin_x, col_spacing = 160, 0
+        font_heading = get_font(38, bold=True)
         font_bullet = get_font(32, bold=False)
-        pill_pad_x, pill_pad_y = 40, 16
-    elif cols == 2:
-        margin_x, col_spacing = 60, 40
+        pill_pad_x, pill_pad_y = 40, 18
+    else: # cols == 2
+        margin_x, col_spacing = 80, 50
         font_heading = get_font(30, bold=True)
         font_bullet = get_font(26, bold=False)
-        pill_pad_x, pill_pad_y = 24, 14
-    else: # cols == 3
-        margin_x, col_spacing = 40, 30
-        font_heading = get_font(24, bold=True)
-        font_bullet = get_font(22, bold=False)
-        pill_pad_x, pill_pad_y = 16, 12
+        pill_pad_x, pill_pad_y = 30, 16
         
     row_spacing = 30 if rows > 1 else 0
     slot_w = (W - (margin_x * 2) - (col_spacing * (cols - 1))) / cols
@@ -299,23 +297,26 @@ def compose_poster(content_data: dict, ai_image_bytes: bytes, output_path: str, 
         draw.text((text_x, pill_y1 + pill_pad_y), heading, font=font_heading, fill=BRAND_COLOR_CANVAS)
         
         # Bullets
-        bullet_y = pill_y2 + 20
+        bullet_y = pill_y2 + 25
         bullets_text_lines = []
-        max_w = 0
-        for bullet in sec.get("bullets", [])[:4]: # Max 4 bullets
-            b_text = f"• {bullet}"
-            blines = textwrap_text(b_text, font_bullet, slot_w - 10)
+        for bullet in sec.get("bullets", [])[:3]: # Max 3 bullets for cleaner look
+            b_text = f"•  {bullet}"
+            blines = textwrap_text(b_text, font_bullet, slot_w - 20)
             for i, bline in enumerate(blines):
-                lw = font_bullet.getbbox(bline)[2] - font_bullet.getbbox(bline)[0]
-                max_w = max(max_w, lw)
+                # If a bullet wraps to a second line, indent it slightly so it clears the bullet point
+                if i > 0:
+                    bline = "    " + bline
                 bullets_text_lines.append((bline, i == 0))
         
-        # Center the entire block of bullets below the pill
-        block_x = cx - (max_w / 2)
+        # Left-align all bullets within this column using a fixed 10% offset from the column center
+        # This prevents the jagged staggered look caused by calculating max_w per block
+        block_x = cx - (slot_w * 0.40)
+        if block_x < x1 + 10:
+            block_x = x1 + 10
         
         for bline, is_first in bullets_text_lines:
             if is_first and bullets_text_lines.index((bline, is_first)) != 0:
-                bullet_y += 18 # extra space between bullets
+                bullet_y += 24 # more breathing room between distinct bullets
             draw.text((block_x, bullet_y), bline, font=font_bullet, fill=BRAND_COLOR_TEXT)
             bullet_y += font_bullet.getbbox(bline)[3] - font_bullet.getbbox(bline)[1] + 12
 
