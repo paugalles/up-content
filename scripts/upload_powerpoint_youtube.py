@@ -30,20 +30,20 @@ def load_env():
                         os.environ.setdefault(key.strip(), value.strip().strip("'\""))
 
 def parse_metadata(md_content):
-    parts = md_content.split("## Para LinkedIn:")
+    parts = re.split(r'##\s*(?:Para LinkedIn|LinkedIn Post|Para LinkedIn:|LinkedIn Post:).*', md_content, flags=re.IGNORECASE)
     yt_part = parts[0]
     
-    title_match = re.search(r'\*\*Título del Video:\*\*\s*(.*)', yt_part)
+    title_match = re.search(r'\*\*(?:Título|Título del Video|Title|Video Title).*?\*\*\s*(.*)', yt_part, re.IGNORECASE)
     title = title_match.group(1).strip() if title_match else ""
     
-    desc_match = re.search(r'\*\*Descripción:\*\*\s*(.*?)(?=\n---|\*\*Capítulos del Video:\*\*|\*\*#Hashtags:\*\*|\Z)', yt_part, re.DOTALL)
+    desc_match = re.search(r'\*\*(?:Descripción|Description).*?\*\*\s*(.*?)(?=\n---|\*\*Capítulos|\*\*Hashtags|\*\*#Hashtags|\Z)', yt_part, re.IGNORECASE | re.DOTALL)
     description = desc_match.group(1).strip() if desc_match else ""
     
-    chapters_match = re.search(r'\*\*Capítulos del Video:\*\*\s*(.*?)(?=\n---|\*\*#Hashtags:\*\*|\Z)', yt_part, re.DOTALL)
+    chapters_match = re.search(r'\*\*(?:Capítulos|Capítulos del Video|Chapters).*?\*\*\s*(.*?)(?=\n---|\*\*Hashtags|\*\*#Hashtags|\Z)', yt_part, re.IGNORECASE | re.DOTALL)
     if chapters_match:
-        description += "\n\nCapítulos del Video:\n" + chapters_match.group(1).strip()
+        description += "\n\nCapítulos:\n" + chapters_match.group(1).strip()
     
-    hashtags_match = re.search(r'\*\*#Hashtags:\*\*\s*(.*?)(?=\n---|\Z)', yt_part, re.DOTALL)
+    hashtags_match = re.search(r'\*\*(?:Hashtags|#Hashtags).*?\*\*\s*(.*?)(?=\n---|\Z)', yt_part, re.IGNORECASE | re.DOTALL)
     hashtags_text = hashtags_match.group(1).strip() if hashtags_match else ""
     hashtags = [tag.strip() for tag in hashtags_text.split() if tag.startswith("#")]
     
