@@ -178,9 +178,13 @@ class VideoComposer:
         self.w, self.h = config['video']['resolution']
         self.fps = config['video']['fps']
 
+
     def compose(self, audio_path: str, slides_dir: str, scenes: List[Scene], output_path: str):
+        import subprocess
+        
         narration_audio = AudioFileClip(audio_path)
         total_duration = narration_audio.duration
+        narration_audio.close()
         
         total_words = sum(len(s.spoken_text.split()) for s in scenes)
         words_per_sec = total_words / total_duration if total_duration > 0 else 1.0
@@ -219,38 +223,73 @@ class VideoComposer:
             visual_clips.append(slide_clip)
             current_time += scene_duration
             
-        # Ensure video duration matches exactly the audio duration
         if logo_clip:
             visual_clips.append(logo_clip)
             
         video = CompositeVideoClip(visual_clips, size=(self.w, self.h)).set_duration(total_duration)
-        video = video.set_audio(narration_audio)
         
-        music_folder = self.config['music'].get('folder', '')
-        if music_folder and os.path.exists(music_folder):
-            music_files = glob.glob(os.path.join(music_folder, '*.mp3'))
-            if music_files:
-                bgm_path = random.choice(music_files)
-                bgm_volume = self.config['music'].get('volume', 0.1)
-                bgm_clip = AudioFileClip(bgm_path).fx(afx.volumex, bgm_volume)
-                
-                if bgm_clip.duration < total_duration:
-                    bgm_clip = afx.audio_loop(bgm_clip, duration=total_duration)
-                else:
-                    bgm_clip = bgm_clip.subclip(0, total_duration)
-                    
-                bgm_clip = bgm_clip.fx(afx.audio_fadeout, self.config['music']['fade_duration'])
-                final_audio = CompositeAudioClip([video.audio, bgm_clip])
-                video = video.set_audio(final_audio)
-
+        temp_video_path = output_path.replace(".mp4", "_temp_vid.mp4")
         print(f"Rendering video to {output_path} (Duration: {total_duration:.2f}s)")
+        
         video.write_videofile(
-            output_path, 
+            temp_video_path, 
             fps=self.fps,
             codec='libx264',
-            audio_codec='aac',
+            audio=False,
             threads=4,
             logger='bar'
         )
         video.close()
-        narration_audio.close()
+        
+        # Now mix audio perfectly using ffmpeg
+        import imageio_ffmpeg
+        ffmpeg_exe = imageio_ffmpeg.get_ffmpeg_exe()
+        
+        music_folder = self.config['music'].get('folder', '')
+        music_file = None
+        if music_folder and os.path.exists(music_folder):
+            music_files = glob.glob(os.path.join(music_folder, '*.mp3'))
+            if music_files:
+                music_file = random.choice(music_files)
+                
+        bgm_vol = self.config['music'].get('volume', 0.1)
+        fade_out = self.config['music'].get('fade_duration', 2)
+        
+        if music_file:
+            # Complex filter to loop music, set volume, fade out, and mix with narration
+            # [1:a] volume, loop, trim, afade [bgm]
+            # [0:a][bgm] amix [out]
+            filter_complex = (
+                f"[1:a]volume={bgm_vol},aloop=loop=-1:size=2e9,atrim=0:{total_duration},"
+                f"afade=t=out:st={total_duration - fade_out}:d={fade_out}[bgm]; "
+                f"[0:a][bgm]amix=inputs=2:duration=first:dropout_transition=2,aformat=sample_fmts=fltp:sample_rates=44100:channel_layouts=stereo[outa]"
+            )
+            cmd = [
+                ffmpeg_exe, "-y",
+                "-i", audio_path,
+                "-i", music_file,
+                "-i", temp_video_path,
+                "-filter_complex", filter_complex,
+                "-map", "2:v",
+                "-map", "[outa]",
+                "-c:v", "copy",
+                "-c:a", "aac", "-b:a", "192k",
+                "-shortest",
+                output_path
+            ]
+        else:
+            cmd = [
+                ffmpeg_exe, "-y",
+                "-i", temp_video_path,
+                "-i", audio_path,
+                "-c:v", "copy",
+                "-c:a", "aac", "-b:a", "192k",
+                "-shortest",
+                output_path
+            ]
+            
+        subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        
+        if os.path.exists(temp_video_path):
+            os.remove(temp_video_path)
+
