@@ -22,4 +22,4 @@ def upload_func(video_path, content):
     youtube(video_path, content)
 
 if __name__ == "__main__":
-    process_reel_upload("youtube", upload_func, extract_metadata)
+    process_reel_upload("youtube", upload_func, extract_metadata, preferred_video_name="reel_youtube.mp4")

@@ -347,8 +347,56 @@ def process_reel(folder_path, client, only_metadata=False):
         except Exception as e:
             print(f"Error muxing audio for {folder.name}: {e}")
             
+        # --- NEW CODE FOR YOUTUBE SPECIFIC REEL ---
+        reel_youtube_mp4 = target_folder / "reel_youtube.mp4"
+        yt_music_dir = Path(__file__).parent / "assets" / "youtube_music"
+        yt_music_files = list(yt_music_dir.glob("*.mp3")) if yt_music_dir.exists() else []
+        yt_music_mp3 = yt_music_files[0] if yt_music_files else None
+
+        if narration_mp3.exists():
+            if yt_music_mp3:
+                mux_yt_cmd = [
+                    ffmpeg_exe,
+                    "-y",
+                    "-i", str(temp_video_mp4),
+                    "-i", str(narration_mp3),
+                    "-stream_loop", "-1",
+                    "-i", str(yt_music_mp3),
+                    "-filter_complex",
+                    "[2:a]volume=0.2[bgm];[1:a][bgm]amix=inputs=2:duration=first:dropout_transition=2[a]",
+                    "-map", "0:v:0",
+                    "-map", "[a]",
+                    "-c:v", "copy",
+                    "-c:a", "aac",
+                    "-b:a", "192k",
+                    "-ac", "2",
+                    "-shortest",
+                    str(reel_youtube_mp4)
+                ]
+            else:
+                # Just voiceover
+                mux_yt_cmd = [
+                    ffmpeg_exe,
+                    "-y",
+                    "-i", str(temp_video_mp4),
+                    "-i", str(narration_mp3),
+                    "-c:v", "copy",
+                    "-c:a", "aac",
+                    "-b:a", "192k",
+                    "-map", "0:v:0",
+                    "-map", "1:a:0",
+                    "-shortest",
+                    str(reel_youtube_mp4)
+                ]
+            try:
+                subprocess.run(mux_yt_cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            except Exception as e:
+                print(f"Error muxing youtube audio for {folder.name}: {e}")
+        # ------------------------------------------
+
         if temp_video_mp4.exists():
             temp_video_mp4.unlink()
+
             
         for f in temp_slides_dir.iterdir():
             f.unlink()

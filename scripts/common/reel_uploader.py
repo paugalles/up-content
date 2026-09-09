@@ -33,7 +33,7 @@ def get_drive_service():
         logging.error(f"Failed to initialize Google Drive API: {e}")
         return None
 
-def process_reel_upload(platform_name, upload_func, extract_metadata_func):
+def process_reel_upload(platform_name, upload_func, extract_metadata_func, preferred_video_name=None):
     load_env()
     drive = get_drive_service()
     if not drive:
@@ -107,11 +107,24 @@ def process_reel_upload(platform_name, upload_func, extract_metadata_func):
 
         video_id = None
         video_name = None
-        for f in files:
-            if f["name"].endswith(".mp4"):
-                video_id = f["id"]
-                video_name = f["name"]
-                break
+        # First try to find the preferred video name if specified
+        if preferred_video_name:
+            for f in files:
+                if f["name"] == preferred_video_name:
+                    video_id = f["id"]
+                    video_name = f["name"]
+                    break
+                    
+        # Fallback to any .mp4 if preferred not found or not specified
+        if not video_id:
+            for f in files:
+                if f["name"].endswith(".mp4") and f["name"] != preferred_video_name:
+                    video_id = f["id"]
+                    video_name = f["name"]
+                    # For youtube, we ideally want reel_youtube.mp4.
+                    # But if we just find reel.mp4, we'll use it as fallback.
+                    if f["name"] == "reel.mp4":
+                        break
 
         meta_id = None
         for f in files:
