@@ -121,7 +121,7 @@ The generated text MUST be highly useful and relevant. DO NOT include generic ad
 You MUST respond with a valid JSON object containing EXACTLY the following keys:
 {{
     "title": "A short, catchy title summarizing the article (max 6 words, in {lang_name}).",
-    "image_prompt": "A prompt for an AI image generator to create an illustration ONLY. ABSOLUTELY NO TEXT, NO WORDS, NO LETTERS, NO NUMBERS inside the image. It must be a flat, clean illustration relevant to the article. The background MUST be a completely solid, uniform, untextured fill of exact hex color {BRAND_COLOR_CANVAS}. Use {BRAND_COLOR_NAVY} and {BRAND_COLOR_BLUE} for the illustration accents. The instructions MUST be in English.",
+    "image_prompt": "A prompt for an AI image generator to create an illustration ONLY. ABSOLUTELY NO TEXT, NO WORDS, NO LETTERS, NO NUMBERS inside the image. It must be a flat, clean illustration relevant to the article. The background MUST be a completely solid, uniform, untextured fill of exact hex color {BRAND_COLOR_CANVAS}. Use {BRAND_COLOR_NAVY} and {BRAND_COLOR_BLUE} for the illustration accents. IMPORTANT: Any national flags (like the Spanish flag) MUST be drawn in their correct, original official colors (e.g., red and yellow for Spain) and MUST NOT be tinted blue. The instructions MUST be in English.",
     "sections": [
         {{
             "heading": "Short heading (max 2 words, in {lang_name})",

@@ -195,13 +195,23 @@ class VideoComposer:
 
         for i, scene in enumerate(scenes):
             scene_words = len(scene.spoken_text.split())
-            scene_duration = max(2.0, scene_words / words_per_sec)
+            scene_duration = scene_words / words_per_sec if words_per_sec > 0 else 2.0
             
             if i == len(scenes) - 1:
-                scene_duration = max(2.0, total_duration - current_time)
+                scene_duration = total_duration - current_time
+                if scene_duration <= 0.1:
+                    scene_duration = 0.1
                 
             slide_img_path = os.path.join(slides_dir, f"slide_{i}.png")
-            slide_clip = ImageClip(slide_img_path).set_start(current_time).set_duration(scene_duration)
+            
+            if i > 0:
+                start_time = max(0, current_time - 0.5)
+                actual_duration = scene_duration + 0.5
+            else:
+                start_time = current_time
+                actual_duration = scene_duration
+                
+            slide_clip = ImageClip(slide_img_path).set_start(start_time).set_duration(actual_duration)
             
             if i > 0:
                 slide_clip = slide_clip.crossfadein(0.5)
@@ -209,10 +219,11 @@ class VideoComposer:
             visual_clips.append(slide_clip)
             current_time += scene_duration
             
+        # Ensure video duration matches exactly the audio duration
         if logo_clip:
             visual_clips.append(logo_clip)
             
-        video = CompositeVideoClip(visual_clips, size=(self.w, self.h))
+        video = CompositeVideoClip(visual_clips, size=(self.w, self.h)).set_duration(total_duration)
         video = video.set_audio(narration_audio)
         
         music_folder = self.config['music'].get('folder', '')
