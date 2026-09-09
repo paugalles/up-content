@@ -7,7 +7,7 @@ import time
 from pathlib import Path
 
 from googleapiclient.discovery import build
-from googleapiclient.http import MediaIoBaseDownload, MediaFileUpload
+from googleapiclient.http import MediaIoBaseDownload
 from google.auth import default
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
@@ -86,20 +86,25 @@ def process_reel_upload(platform_name, upload_func, extract_metadata_func):
     target_metadata_id = None
     target_video_name = None
 
-    uploaded_flag = f"{platform_name}_uploaded.txt"
+    property_flag = f"{platform_name}_uploaded"
 
     for subfolder in subfolders:
         res = drive.files().list(
             q=f"'{subfolder['id']}' in parents",
-            fields="files(id, name)"
+            fields="files(id, name, properties)"
         ).execute()
         files = res.get("files", [])
-        file_names = {f["name"]: f["id"] for f in files}
+        
+        # Check if any file in the folder (like the metadata file) has our custom property flag set
+        already_uploaded = False
+        for f in files:
+            if f.get("properties", {}).get(property_flag) == "true":
+                already_uploaded = True
+                break
+                
+        if already_uploaded:
+            continue  # Already uploaded to this platform
 
-        if uploaded_flag in file_names:
-            continue  # Already uploaded
-
-        # The video could be reel.mp4 or something similar
         video_id = None
         video_name = None
         for f in files:
@@ -108,8 +113,11 @@ def process_reel_upload(platform_name, upload_func, extract_metadata_func):
                 video_name = f["name"]
                 break
 
-        # Metadata can be metadata.json or reels_metadata.json
-        meta_id = file_names.get("metadata.json") or file_names.get("reels_metadata.json")
+        meta_id = None
+        for f in files:
+            if f["name"] in ("metadata.json", "reels_metadata.json"):
+                meta_id = f["id"]
+                break
 
         if video_id and meta_id:
             target_subfolder = subfolder
@@ -165,17 +173,14 @@ def process_reel_upload(platform_name, upload_func, extract_metadata_func):
         except Exception as e:
             logging.error(f"Failed to upload to {platform_name}: {e}")
 
-        # Mark as uploaded
+        # Mark as uploaded using Google Drive custom properties
         if success:
-            logging.info(f"Writing {uploaded_flag} to Google Drive...")
+            logging.info(f"Setting '{property_flag}' property on metadata file in Google Drive...")
             try:
-                flag_path = tmp_path / uploaded_flag
-                flag_path.write_text("Uploaded successfully.")
-                media = MediaFileUpload(str(flag_path), mimetype="text/plain")
-                drive.files().create(
-                    body={"name": uploaded_flag, "parents": [target_subfolder["id"]]},
-                    media_body=media
+                drive.files().update(
+                    fileId=target_metadata_id,
+                    body={"properties": {property_flag: "true"}}
                 ).execute()
                 logging.info(f"Successfully marked as uploaded for {platform_name}.")
             except Exception as e:
-                logging.error(f"Failed to write flag file to Drive: {e}")
+                logging.error(f"Failed to write flag property to Drive: {e}")
