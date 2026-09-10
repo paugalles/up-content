@@ -3,7 +3,7 @@ name: Upload Poster to LinkedIn
 on:
   workflow_dispatch:
   # schedule:
-  #   - cron: '0 6,17 * * *'
+  #   - cron: '0 5,16 * * *'
 
 jobs:
   upload-poster-linkedin:

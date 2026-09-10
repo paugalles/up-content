@@ -3,7 +3,7 @@ name: Upload Reel to Instagram
 on:
   workflow_dispatch:
   # schedule:
-  #   - cron: '0 6,17 * * *'
+  #   - cron: '0 5,16 * * *'
 
 jobs:
   upload-reel-instagram:
