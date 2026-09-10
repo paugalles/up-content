@@ -316,7 +316,7 @@ def process_single_url(lang, url, output_base, client, http):
     
     pptx_path = out_dir / f"{slug}.pptx"
     video_path = out_dir / "youtube.mp4"
-    meta_path = out_dir / "metadata.md"
+    meta_path = out_dir / "metadata.json"
     
     if pptx_path.exists() and video_path.exists() and meta_path.exists():
         print(f"Skipping {url}, already exists.")
@@ -452,13 +452,36 @@ Respond ONLY with this JSON structure:
         print(f"Error creating video for {url}: {e}")
         
     # Metadata
-    meta_prompt = f"Generate a YouTube description and LinkedIn post for the following presentation. Language: {lang}.\n\nSlides: {json.dumps(slides_data)}\n\nInclude appropriate hashtags."
+    meta_prompt = f"""
+You are an expert content formatter.
+Generate a YouTube title and description, and a LinkedIn post for the following presentation. Language: {lang}.
+Slides: {json.dumps(slides_data)}
+
+Extract the information into a strict JSON format with the exact following schema:
+{{
+    "youtube": {{
+        "title": "A suitable title for the YouTube video",
+        "description": "The description text for YouTube (excluding tags)",
+        "tags": ["tag1", "tag2"]
+    }},
+    "linkedin": {{
+        "post": "The text of the LinkedIn post (excluding tags)",
+        "tags": ["tag1", "tag2"]
+    }}
+}}
+
+Make sure to extract hashtags into the 'tags' arrays without the '#' symbol.
+"""
     try:
         meta_resp = client.models.generate_content(
             model='gemini-2.5-flash',
-            contents=meta_prompt
+            contents=meta_prompt,
+            config=types.GenerateContentConfig(
+                response_mime_type="application/json",
+            )
         )
-        meta_path.write_text(meta_resp.text, encoding="utf-8")
+        data = json.loads(meta_resp.text)
+        meta_path.write_text(json.dumps(data, indent=4, ensure_ascii=False), encoding="utf-8")
     except Exception as e:
         print(f"Error generating metadata for {url}: {e}")
         
