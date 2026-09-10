@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="{{ language }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Poster - {{ title }}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --brand-navy: {{ BRAND_COLOR_NAVY }};
+            --brand-blue: {{ BRAND_COLOR_BLUE }};
+            --brand-text: {{ BRAND_COLOR_TEXT }};
+            --brand-canvas: {{ BRAND_COLOR_CANVAS }};
+            --brand-border: {{ BRAND_COLOR_BORDER }};
+        }
+        
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--brand-canvas);
+            color: var(--brand-text);
+            width: 1080px;
+            height: 1350px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .header {
+            padding: 80px 100px 40px;
+            text-align: center;
+        }
+
+        h1 {
+            font-size: 56px;
+            font-weight: 800;
+            color: var(--brand-navy);
+            line-height: 1.2;
+            text-transform: uppercase;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        .content {
+            flex: 1;
+            padding: 40px 100px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+        
+        .quote-box {
+            background-color: white;
+            border-left: 16px solid var(--brand-blue);
+            padding: 80px;
+            border-radius: 0 24px 24px 0;
+            box-shadow: 0 24px 48px rgba(12, 61, 109, 0.12);
+            font-size: 44px;
+            line-height: 1.6;
+            font-style: italic;
+            color: var(--brand-text);
+            position: relative;
+        }
+        
+        .quote-box strong {
+            color: var(--brand-navy);
+            font-weight: 800;
+        }
+        
+        .quote-box::before {
+            content: "“";
+            position: absolute;
+            top: 20px;
+            left: -32px;
+            font-size: 140px;
+            color: var(--brand-blue);
+            opacity: 0.15;
+            font-family: serif;
+        }
+
+        .footer {
+            padding: 50px 100px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-top: 2px solid var(--brand-border);
+            background-color: white;
+        }
+
+        .brand-name {
+            font-size: 36px;
+            font-weight: 900;
+            color: var(--brand-navy);
+        }
+
+        .brand-site {
+            font-size: 32px;
+            font-weight: 700;
+            color: var(--brand-blue);
+            text-decoration: none;
+        }
+        
+        .decor {
+            position: absolute;
+            width: 400px;
+            height: 400px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--brand-blue) 0%, var(--brand-navy) 100%);
+            opacity: 0.15;
+            z-index: -1;
+        }
+        
+        .decor-1 { top: -100px; right: -100px; }
+        .decor-2 { bottom: 100px; left: -150px; width: 300px; height: 300px; }
+    </style>
+</head>
+<body>
+    <div class="decor decor-1"></div>
+    <div class="decor decor-2"></div>
+    
+    <div class="header">
+        <h1>{{ title }}</h1>
+    </div>
+
+    <div class="content">
+        <div class="quote-box">
+            {{ quote | parse_markdown | safe }}
+        </div>
+    </div>
+
+    <div class="footer">
+        <div class="brand-name">{{ BRAND_NAME }}</div>
+        <div class="brand-site">{{ BRAND_SITE }}</div>
+    </div>
+</body>
+</html>

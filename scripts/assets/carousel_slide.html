@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="{{ language }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Carousel Slide - {{ slide_index }}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --brand-navy: {{ BRAND_COLOR_NAVY }};
+            --brand-blue: {{ BRAND_COLOR_BLUE }};
+            --brand-text: {{ BRAND_COLOR_TEXT }};
+            --brand-canvas: {{ BRAND_COLOR_CANVAS }};
+            --brand-border: {{ BRAND_COLOR_BORDER }};
+        }
+        
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--brand-canvas);
+            color: var(--brand-text);
+            width: 1080px;
+            height: 1350px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .header {
+            padding: 100px 100px 20px;
+        }
+
+        .slide-counter {
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--brand-blue);
+            margin-bottom: 20px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        h2 {
+            font-size: 72px;
+            font-weight: 900;
+            color: var(--brand-navy);
+            line-height: 1.1;
+        }
+
+        .content {
+            flex: 1;
+            padding: 40px 100px 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+        }
+        
+        .body-text {
+            font-size: 36px;
+            line-height: 1.6;
+            color: var(--brand-text);
+        }
+        
+        .body-text strong {
+            color: var(--brand-navy);
+            font-weight: 800;
+        }
+        
+        .intro-text {
+            margin-bottom: 32px;
+        }
+        
+        .bullet-list {
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+
+        .bullet-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 20px;
+        }
+        
+        .bullet-icon {
+            flex-shrink: 0;
+            margin-top: 4px; /* Slight alignment tweak */
+            color: var(--brand-navy);
+            font-weight: bold;
+        }
+
+        .footer {
+            padding: 50px 100px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .brand-name {
+            font-size: 32px;
+            font-weight: 900;
+            color: var(--brand-navy);
+        }
+
+        .progress-bar {
+            display: flex;
+            gap: 12px;
+        }
+
+        .progress-dot {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background-color: var(--brand-border);
+        }
+
+        .progress-dot.active {
+            background-color: var(--brand-blue);
+            width: 32px;
+            border-radius: 8px;
+        }
+
+        .swipe-hint {
+            font-size: 28px;
+            font-weight: 900;
+            color: var(--brand-blue);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .decor {
+            position: absolute;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--brand-blue) 0%, var(--brand-navy) 100%);
+            opacity: 0.08;
+            z-index: -1;
+        }
+        
+        .decor-1 { top: -150px; right: -150px; width: 400px; height: 400px; }
+        .decor-2 { bottom: 150px; left: -100px; width: 250px; height: 250px; }
+    </style>
+</head>
+<body>
+    <div class="decor decor-1"></div>
+    <div class="decor decor-2"></div>
+    
+    <div class="header">
+        <div class="slide-counter">{{ slide_index }} / {{ total_slides }}</div>
+        <h2>{{ title }}</h2>
+    </div>
+
+    <div class="content">
+        <div class="body-text">
+            {{ body | parse_markdown | format_bullets | safe }}
+        </div>
+    </div>
+
+    <div class="footer">
+        <div class="brand-name">{{ BRAND_NAME }}</div>
+        
+        <div class="progress-bar">
+            {% for i in range(1, total_slides + 1) %}
+                <div class="progress-dot {% if i == slide_index %}active{% endif %}"></div>
+            {% endfor %}
+        </div>
+
+        <div class="swipe-hint">
+            {% if slide_index < total_slides %}
+                Swipe &rarr;
+            {% else %}
+                {{ BRAND_SITE }}
+            {% endif %}
+        </div>
+    </div>
+</body>
+</html>
