@@ -336,8 +336,8 @@ def generate_assets_for_blog(blog_id: str, blog_content: str, language: str, out
     lang_output_dir = os.path.join(output_dir, language)
     os.makedirs(lang_output_dir, exist_ok=True)
     
-    poster_filename = os.path.join(lang_output_dir, f"{blog_id}_poster.jpg")
-    json_filename = os.path.join(lang_output_dir, f"{blog_id}_social_copy.json")
+    poster_filename = os.path.join(lang_output_dir, f"{blog_id}.jpg")
+    json_filename = os.path.join(lang_output_dir, f"{blog_id}.json")
     illustration_filename = os.path.join(lang_output_dir, f"{blog_id}_illustration.jpg")
     
     if not overwrite_copy and os.path.exists(poster_filename) and os.path.exists(json_filename):
