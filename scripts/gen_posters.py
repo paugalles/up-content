@@ -121,7 +121,7 @@ The generated text MUST be highly useful and relevant. DO NOT include generic ad
 You MUST respond with a valid JSON object containing EXACTLY the following keys:
 {{
     "title": "A short, catchy title summarizing the article (max 6 words, in {lang_name}).",
-    "image_prompt": "A prompt for an AI image generator to create an illustration ONLY. ABSOLUTELY NO TEXT, NO WORDS, NO LETTERS, NO NUMBERS inside the image. It must be a flat, clean illustration relevant to the article. The background MUST be a completely solid, uniform, untextured fill of exact hex color {BRAND_COLOR_CANVAS}. Use {BRAND_COLOR_NAVY} and {BRAND_COLOR_BLUE} for the illustration accents. IMPORTANT: Any national flags (like the Spanish flag) MUST be drawn in their correct, original official colors (e.g., red and yellow for Spain) and MUST NOT be tinted blue. The instructions MUST be in English.",
+    "image_prompt": "A prompt for an AI image generator to create an illustration ONLY. ABSOLUTELY NO TEXT, NO WORDS, NO LETTERS, NO NUMBERS inside the image. It must be a flat, clean illustration relevant to the article. The background MUST be a completely solid, uniform, untextured fill of exact hex color {BRAND_COLOR_CANVAS}. Use {BRAND_COLOR_NAVY} and {BRAND_COLOR_BLUE} for the illustration accents. IMPORTANT: While using the brand blues for accents, any objects with inherent, universally recognized colors (e.g., national flags like the red and yellow Spanish flag, a passport, natural skin tones, plants, animals, etc.) MUST be drawn in their correct, original colors and MUST NOT be tinted or monochromatic blue. The instructions MUST be in English.",
     "sections": [
         {{
             "heading": "Short heading (max 2 words, in {lang_name})",
@@ -235,7 +235,7 @@ def compose_poster(content_data: dict, ai_image_bytes: bytes, output_path: str, 
                 print(f"      [Warning] Could not paste AI image: {e}")
 
     # 1. Draw Title
-    font_title = get_font(60, bold=True)
+    font_title = get_font(54, bold=True)
     draw_text_centered(draw, content_data.get("title", "").upper(), font_title, 
                        (0, y_title_start, W, y_title_end), BRAND_COLOR_NAVY)
 
@@ -244,15 +244,15 @@ def compose_poster(content_data: dict, ai_image_bytes: bytes, output_path: str, 
     
     num_sec = len(sections)
     
+    # Cap sections to 4 maximum to prevent vertical squishing
+    if num_sec > 4:
+        sections = sections[:4]
+        num_sec = 4
+        
     if num_sec <= 2:
         cols, rows = 1, num_sec
-    elif num_sec == 3:
-        cols, rows = 1, 3
-    elif num_sec == 4:
-        cols, rows = 2, 2
     else:
-        cols, rows = 2, 3
-        sections = sections[:6]
+        cols, rows = 2, 2
 
     if cols == 1:
         margin_x, col_spacing = 160, 0
@@ -284,7 +284,8 @@ def compose_poster(content_data: dict, ai_image_bytes: bytes, output_path: str, 
         hw = font_heading.getbbox(heading)[2] - font_heading.getbbox(heading)[0]
         hh = font_heading.getbbox(heading)[3] - font_heading.getbbox(heading)[1]
         
-        pill_w = min(hw + (pill_pad_x * 2), slot_w)
+        # Force uniform pill widths across the entire column to maintain a rigid vertical grid
+        pill_w = slot_w - 20
         pill_h = hh + (pill_pad_y * 2)
         
         pill_x1 = cx - (pill_w / 2)
@@ -298,25 +299,25 @@ def compose_poster(content_data: dict, ai_image_bytes: bytes, output_path: str, 
         
         # Bullets
         bullet_y = pill_y2 + 25
+        
+        # Left-align all bullets to visually match the inner text of the pill above them.
+        # This creates a strong, invisible vertical grid line that looks very professional.
+        block_x = pill_x1 + 20
+        available_w = (x2 - 10) - block_x
+        
         bullets_text_lines = []
         for bullet in sec.get("bullets", [])[:3]: # Max 3 bullets for cleaner look
-            b_text = f"•  {bullet}"
-            blines = textwrap_text(b_text, font_bullet, slot_w - 20)
+            b_text = f"• {bullet}"
+            blines = textwrap_text(b_text, font_bullet, available_w)
             for i, bline in enumerate(blines):
                 # If a bullet wraps to a second line, indent it slightly so it clears the bullet point
                 if i > 0:
-                    bline = "    " + bline
+                    bline = "   " + bline
                 bullets_text_lines.append((bline, i == 0))
-        
-        # Left-align all bullets within this column using a fixed 10% offset from the column center
-        # This prevents the jagged staggered look caused by calculating max_w per block
-        block_x = cx - (slot_w * 0.40)
-        if block_x < x1 + 10:
-            block_x = x1 + 10
         
         for bline, is_first in bullets_text_lines:
             if is_first and bullets_text_lines.index((bline, is_first)) != 0:
-                bullet_y += 24 # more breathing room between distinct bullets
+                bullet_y += 18 # reduced slightly for better grouping
             draw.text((block_x, bullet_y), bline, font=font_bullet, fill=BRAND_COLOR_TEXT)
             bullet_y += font_bullet.getbbox(bline)[3] - font_bullet.getbbox(bline)[1] + 12
 

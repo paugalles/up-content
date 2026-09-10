@@ -402,7 +402,7 @@ Respond ONLY with this JSON structure:
             print(f"Error generating title image for {url}: {e}")
     
     for i, c_data in enumerate(slides_data.get("content_slides", [])):
-        img_prompt = c_data.get("image_prompt", "") + f" A prompt for an AI image generator to create an illustration ONLY. ABSOLUTELY NO TEXT, NO WORDS, NO LETTERS, NO NUMBERS inside the image. It must be a flat, clean illustration relevant to the article. The background MUST be a completely solid, uniform, untextured fill of exact hex color {brand_canvas}. Use {brand_navy} and {brand_blue} for the illustration accents."
+        img_prompt = c_data.get("image_prompt", "") + f" A prompt for an AI image generator to create an illustration ONLY. ABSOLUTELY NO TEXT, NO WORDS, NO LETTERS, NO NUMBERS inside the image. It must be a flat, clean illustration relevant to the article. The background MUST be a completely solid, uniform, untextured fill of exact hex color {brand_canvas}. Use {brand_navy} and {brand_blue} for the illustration accents. IMPORTANT: While using the brand blues for accents, any objects with inherent, universally recognized colors (e.g., national flags like the red and yellow Spanish flag, a passport, natural skin tones, plants, animals, etc.) MUST be drawn in their correct, original colors and MUST NOT be tinted or monochromatic blue. The instructions MUST be in English."
         try:
             img_resp = client.models.generate_content(
                 model='gemini-2.5-flash-image',

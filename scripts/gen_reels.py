@@ -488,7 +488,7 @@ def main():
     print(f"Found {len(folders_to_process)} folders to process.")
     
     # Use more workers if we're only doing metadata (API bound) vs video processing (CPU bound)
-    workers = 10 if args.only_metadata else 3
+    workers = 10 if args.only_metadata else 7
     
     with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as executor:
         futures = [executor.submit(process_reel, folder, client, args.only_metadata) for folder in folders_to_process]
