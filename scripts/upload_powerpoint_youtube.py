@@ -3,13 +3,12 @@ import json
 import logging
 import os
 import random
-import re
 import sys
 import tempfile
 from pathlib import Path
 
 from googleapiclient.discovery import build
-from googleapiclient.http import MediaIoBaseDownload
+from googleapiclient.http import MediaIoBaseDownload, MediaFileUpload
 from google.auth import default
 
 # Ensure imports work when run from project root
@@ -89,57 +88,68 @@ def main():
     target_video_id = None
     target_metadata_id = None
     target_subfolder = None
+    target_json_data = None
     
-    # Find a subfolder that has both youtube.mp4 and metadata.json
-    for subfolder in subfolders:
-        res = drive.files().list(
-            q=f"'{subfolder['id']}' in parents",
-            fields="files(id, name)"
-        ).execute()
-        files = res.get("files", [])
-        
-        video_id = next((f["id"] for f in files if f["name"] == "youtube.mp4"), None)
-        meta_id = next((f["id"] for f in files if f["name"] == "metadata.json"), None)
-        
-        if video_id and meta_id:
-            target_video_id = video_id
-            target_metadata_id = meta_id
-            target_subfolder = subfolder
-            break
-            
-    if not target_video_id or not target_metadata_id:
-        logging.error("Could not find any subfolder with both 'youtube.mp4' and 'metadata.json'.")
-        sys.exit(1)
-        
-    logging.info(f"Selected subfolder '{target_subfolder['name']}' with video and metadata.")
-    
-    # 3. Download the pair
+    # 3. Find a subfolder that has both youtube.mp4 and metadata.json AND hasn't been uploaded yet
     with tempfile.TemporaryDirectory() as tmpdir:
         tmp_path = Path(tmpdir)
         
-        video_path = tmp_path / "youtube.mp4"
-        meta_path = tmp_path / "metadata.json"
-        
-        for name, file_id, path in [("youtube.mp4", target_video_id, video_path), 
-                                    ("metadata.json", target_metadata_id, meta_path)]:
-            logging.info(f"Downloading {name}...")
-            try:
-                request = drive.files().get_media(fileId=file_id)
-                with open(path, "wb") as f:
-                    downloader = MediaIoBaseDownload(f, request)
-                    done = False
-                    while not done:
-                        status, done = downloader.next_chunk()
-                logging.info(f"Successfully downloaded {name}.")
-            except Exception as e:
-                logging.error(f"Failed to download {name}: {e}")
-                sys.exit(1)
-                
-        # Parse JSON metadata
-        with open(meta_path, "r", encoding="utf-8") as f:
-            meta_json = json.load(f)
+        for subfolder in subfolders:
+            res = drive.files().list(
+                q=f"'{subfolder['id']}' in parents",
+                fields="files(id, name)"
+            ).execute()
+            files = res.get("files", [])
             
-        yt_meta = meta_json.get("youtube", {})
+            video_id = next((f["id"] for f in files if f["name"] == "youtube.mp4"), None)
+            meta_id = next((f["id"] for f in files if f["name"] == "metadata.json"), None)
+            
+            if video_id and meta_id:
+                # Download JSON to check if it's already uploaded
+                json_path = tmp_path / f"{subfolder['id']}_metadata.json"
+                try:
+                    request = drive.files().get_media(fileId=meta_id)
+                    with open(json_path, "wb") as f:
+                        downloader = MediaIoBaseDownload(f, request)
+                        done = False
+                        while not done:
+                            status, done = downloader.next_chunk()
+                            
+                    with open(json_path, "r", encoding="utf-8") as f:
+                        meta_json = json.load(f)
+                        
+                    if not meta_json.get("youtube_uploaded"):
+                        target_video_id = video_id
+                        target_metadata_id = meta_id
+                        target_subfolder = subfolder
+                        target_json_data = meta_json
+                        break
+                except Exception as e:
+                    logging.error(f"Failed to process metadata for {subfolder['name']}: {e}")
+                    continue
+                
+        if not target_video_id or not target_metadata_id:
+            logging.info(f"Could not find any unprocessed subfolder in {lang} with 'youtube.mp4' and 'metadata.json'.")
+            sys.exit(0)
+            
+        logging.info(f"Selected subfolder '{target_subfolder['name']}' with video and metadata.")
+        
+        video_path = tmp_path / "youtube.mp4"
+        
+        logging.info("Downloading youtube.mp4...")
+        try:
+            request = drive.files().get_media(fileId=target_video_id)
+            with open(video_path, "wb") as f:
+                downloader = MediaIoBaseDownload(f, request)
+                done = False
+                while not done:
+                    status, done = downloader.next_chunk()
+            logging.info("Successfully downloaded youtube.mp4.")
+        except Exception as e:
+            logging.error(f"Failed to download youtube.mp4: {e}")
+            sys.exit(1)
+            
+        yt_meta = target_json_data.get("youtube", {})
         content = {
             "title": yt_meta.get("title", ""),
             "caption": yt_meta.get("description", ""),
@@ -162,21 +172,25 @@ def main():
         except Exception as e:
             logging.error(f"Failed to upload to YouTube: {e}")
             
-        # 5. Delete video from Google Drive ONLY if upload was successful
+        # 5. Mark as uploaded in Google Drive instead of deleting
         if yt_success:
-            logging.info("Upload was successful. Deleting 'youtube.mp4' from Google Drive...")
+            logging.info("Upload was successful. Writing 'youtube_uploaded' key into JSON metadata...")
             try:
-                # In standard shared folders, Editors cannot permanently delete files they don't own.
-                # Removing the parent folder effectively removes it from this shared workspace.
+                target_json_data["youtube_uploaded"] = True
+                updated_json_path = tmp_path / "updated_metadata.json"
+                with open(updated_json_path, "w", encoding="utf-8") as f:
+                    json.dump(target_json_data, f, indent=4, ensure_ascii=False)
+                    
+                media = MediaFileUpload(str(updated_json_path), mimetype="application/json")
                 drive.files().update(
-                    fileId=target_video_id,
-                    removeParents=target_subfolder['id']
+                    fileId=target_metadata_id,
+                    media_body=media
                 ).execute()
-                logging.info("Successfully deleted 'youtube.mp4' from Drive.")
+                logging.info("Successfully updated 'metadata.json' on Drive.")
             except Exception as e:
-                logging.error(f"Failed to delete 'youtube.mp4' from Drive: {e}")
+                logging.error(f"Failed to update 'metadata.json' on Drive: {e}")
         else:
-            logging.warning("YouTube upload failed. Video will NOT be deleted from Google Drive.")
+            logging.warning("YouTube upload failed. Metadata will NOT be updated.")
 
 if __name__ == "__main__":
     main()
