@@ -155,3 +155,14 @@ def linkedin(asset: Path, caption: str, http=Http()):
     body = {"author": urn, "commentary": caption[:3000], "visibility": "PUBLIC", "distribution": {"feedDistribution": "MAIN_FEED", "targetEntities": [], "thirdPartyDistributionChannels": []}, "content": {"media": {"title": caption.splitlines()[0][:200], "id": init["document"]}}, "lifecycleState": "PUBLISHED", "isReshareDisabledByAuthor": False}
     response = http.request("POST", f"{LINKEDIN}/rest/posts", headers=headers, json=body)
     return response.headers.get("x-restli-id", "created")
+
+def linkedin_image(asset: Path, caption: str, http=Http()):
+    env = require("LINKEDIN_ACCESS_TOKEN", "LINKEDIN_ORGANIZATION_ID")
+    urn = f"urn:li:organization:{env['LINKEDIN_ORGANIZATION_ID']}"
+    headers = {"Authorization": f"Bearer {env['LINKEDIN_ACCESS_TOKEN']}", "LinkedIn-Version": os.getenv("LINKEDIN_VERSION") or "202508", "X-Restli-Protocol-Version": "2.0.0", "Content-Type": "application/json"}
+    init = http.json("POST", f"{LINKEDIN}/rest/images?action=initializeUpload", headers=headers, json={"initializeUploadRequest": {"owner": urn}})["value"]
+    with asset.open("rb") as handle: http.request("PUT", init["uploadUrl"], headers={"Authorization": f"Bearer {env['LINKEDIN_ACCESS_TOKEN']}", "Content-Type": "image/jpeg"}, data=handle)
+    body = {"author": urn, "commentary": caption[:3000], "visibility": "PUBLIC", "distribution": {"feedDistribution": "MAIN_FEED", "targetEntities": [], "thirdPartyDistributionChannels": []}, "content": {"media": {"id": init["image"]}}, "lifecycleState": "PUBLISHED", "isReshareDisabledByAuthor": False}
+    response = http.request("POST", f"{LINKEDIN}/rest/posts", headers=headers, json=body)
+    return response.headers.get("x-restli-id", "created")
+

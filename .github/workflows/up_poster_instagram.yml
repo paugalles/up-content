@@ -1,0 +1,40 @@
+name: Upload Poster to Instagram
+
+on:
+  workflow_dispatch:
+  # schedule:
+  #   - cron: '0 6,17 * * *'
+
+jobs:
+  upload-poster-instagram:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: 'projects/309306571615/locations/global/workloadIdentityPools/github-pool/providers/github-provider'
+          service_account: 'github-deployer@project-1493a8e0-d428-41c3-a11.iam.gserviceaccount.com'
+
+      - name: Run Upload Script
+        env:
+          POSTER_MEDIA_FOLDER: ${{ secrets.POSTER_MEDIA_FOLDER }}
+          INSTAGRAM_ACCOUNT_ID: ${{ secrets.INSTAGRAM_ACCOUNT_ID }}
+          META_ACCESS_TOKEN: ${{ secrets.META_ACCESS_TOKEN }}
+        run: |
+          python scripts/up_poster_instagram.py
