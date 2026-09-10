@@ -107,30 +107,44 @@ If you are generating a list of items for a carousel slide's body, you MUST form
 Generate the content in {lang_name} and output a strict JSON object matching this EXACT schema:
 {{
     "instagram": {{
-        "post_description": "Emoji-rich engaging description.",
+        "carousel_post_description": "Emoji-rich engaging description specifically tailored for the carousel (in {lang_name}). Distinct content.",
+        "poster_post_description": "Emoji-rich engaging description specifically tailored for the poster (in {lang_name}). Use different words from the carousel description.",
         "hashtags": ["#tag1", "#tag2"],
+        "poster_title": "Short Hook Title (in {lang_name})",
+        "poster_quote": "A powerful, specific quote or key takeaway extracted from the article (in {lang_name}).",
         "carousel_slides": [
-            {{"title": "Slide 1 Title", "body": "Specific detailed info."}},
-            {{"title": "Slide 2 Title", "body": "More specific info."}}
+            {{"title": "Slide 1 Title (in {lang_name})", "body": "Specific detailed info (in {lang_name})."}}
         ]
     }},
     "linkedin": {{
-        "post_description": "Professional insightful post.",
+        "carousel_post_description": "Professional insightful post specifically tailored for the carousel (in {lang_name}). Distinct content.",
+        "poster_post_description": "Professional insightful post specifically tailored for the poster (in {lang_name}). Use different words from the carousel description.",
         "hashtags": ["#tag1", "#tag2"],
-        "poster_title": "Short Hook Title",
-        "poster_quote": "A powerful, specific quote or key takeaway extracted from the article."
+        "poster_title": "Short Hook Title (in {lang_name})",
+        "poster_quote": "A powerful, specific quote or key takeaway extracted from the article (in {lang_name}).",
+        "carousel_slides": [
+            {{"title": "Slide 1 Title (in {lang_name})", "body": "Specific detailed info (in {lang_name})."}}
+        ]
     }},
     "facebook": {{
-        "post_description": "Conversational post.",
+        "carousel_post_description": "Conversational post specifically tailored for the carousel (in {lang_name}). Distinct content.",
+        "poster_post_description": "Conversational post specifically tailored for the poster (in {lang_name}). Use different words from the carousel description.",
         "hashtags": ["#tag1", "#tag2"],
-        "poster_title": "Short Hook Title",
-        "poster_quote": "A powerful, specific quote or key takeaway extracted from the article."
+        "poster_title": "Short Hook Title (in {lang_name})",
+        "poster_quote": "A powerful, specific quote or key takeaway extracted from the article (in {lang_name}).",
+        "carousel_slides": [
+            {{"title": "Slide 1 Title (in {lang_name})", "body": "Specific detailed info (in {lang_name})."}}
+        ]
     }},
     "tiktok": {{
-        "post_description": "Hook-driven description.",
+        "carousel_post_description": "Hook-driven description specifically tailored for the carousel (in {lang_name}). Distinct content.",
+        "poster_post_description": "Hook-driven description specifically tailored for the poster (in {lang_name}). Use different words from the carousel description.",
         "hashtags": ["#tag1", "#tag2"],
-        "poster_title": "Short Hook Title",
-        "poster_quote": "A powerful, specific quote or key takeaway extracted from the article."
+        "poster_title": "Short Hook Title (in {lang_name})",
+        "poster_quote": "A powerful, specific quote or key takeaway extracted from the article (in {lang_name}).",
+        "carousel_slides": [
+            {{"title": "Slide 1 Title (in {lang_name})", "body": "Specific detailed info (in {lang_name})."}}
+        ]
     }}
 }}
 """
@@ -162,8 +176,24 @@ async def process_url(browser, url: str, language: str, output_base: Path):
         
     target_dir = output_base / language / article_slug
     if target_dir.exists() and (target_dir / "metadata.json").exists():
-        print(f"⏭️ Skipping {article_slug} ({language}) - already exists.")
-        return
+        try:
+            with open(target_dir / "metadata.json", "r", encoding="utf-8") as f:
+                content_json = json.load(f)
+                
+            has_poster = (target_dir / "linkedin_poster.jpg").exists() if "linkedin" in content_json else True
+            
+            has_slides = True
+            if "instagram" in content_json and "carousel_slides" in content_json["instagram"]:
+                for i in range(len(content_json["instagram"]["carousel_slides"])):
+                    if not (target_dir / f"ig_slide_{i+1}.jpg").exists():
+                        has_slides = False
+                        break
+                        
+            if has_poster and has_slides:
+                print(f"⏭️ Skipping {article_slug} ({language}) - already exists.")
+                return
+        except Exception:
+            pass
         
     print(f"⏳ Processing {article_slug} ({language})...")
     
@@ -253,7 +283,7 @@ async def main(args=None):
         browser = await p.chromium.launch(headless=True)
         
         # We can run in chunks to avoid overwhelming Playwright / Gemini
-        chunk_size = 5
+        chunk_size = 10
         for i in range(0, len(tasks_data), chunk_size):
             chunk = tasks_data[i:i+chunk_size]
             coroutines = [process_url(browser, url, lang, output_base) for url, lang in chunk]
