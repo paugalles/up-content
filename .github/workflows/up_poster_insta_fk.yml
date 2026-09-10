@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
   # Uncomment the following lines to enable the daily schedule
   # schedule:
-  #   - cron: '0 12 * * *' # Runs every day at 12:00 PM UTC
+  #   - cron: '0 16 * * *' # Runs every day at 16:00 UTC
 
 jobs:
   upload-poster:
