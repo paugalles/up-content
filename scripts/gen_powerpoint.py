@@ -354,7 +354,7 @@ Respond ONLY with this JSON structure:
 """
     try:
         resp = client.models.generate_content(
-            model='gemini-2.5-flash',
+            model='gemini-2.5-pro',
             contents=prompt,
             config=types.GenerateContentConfig(
                 response_mime_type="application/json",
@@ -474,7 +474,7 @@ Make sure to extract hashtags into the 'tags' arrays without the '#' symbol.
 """
     try:
         meta_resp = client.models.generate_content(
-            model='gemini-2.5-flash',
+            model='gemini-2.5-pro',
             contents=meta_prompt,
             config=types.GenerateContentConfig(
                 response_mime_type="application/json",

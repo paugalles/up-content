@@ -345,11 +345,11 @@ def generate_assets_for_blog(blog_id: str, blog_content: str, language: str, out
         return
         
     try:
-        print("  - Generating copy and structure (gemini-2.5-flash)...")
+        print("  - Generating copy and structure (gemini-2.5-pro)...")
         prompt = get_system_prompt(language)
         
         response = client.models.generate_content(
-            model='gemini-2.5-flash',
+            model='gemini-2.5-pro',
             contents=f"{prompt}\n\nBlog Article:\n{blog_content}",
             config=types.GenerateContentConfig(
                 response_mime_type="application/json",

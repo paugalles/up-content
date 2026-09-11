@@ -152,7 +152,7 @@ Generate the content in {lang_name} and output a strict JSON object matching thi
 async def generate_social_content(text: str, language: str) -> dict:
     prompt = get_llm_prompt(language)
     response = await client.aio.models.generate_content(
-        model='gemini-2.5-flash',
+        model='gemini-2.5-pro',
         contents=f"{prompt}\n\nArticle Text:\n{text}",
         config=types.GenerateContentConfig(
             response_mime_type="application/json",
