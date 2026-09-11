@@ -3,7 +3,7 @@ name: Upload Poster to Facebook
 on:
   workflow_dispatch:
   schedule:
-    - cron: '0 16 * * *'
+    - cron: '0 16 * * 6,0'
 
 jobs:
   upload-poster-facebook:

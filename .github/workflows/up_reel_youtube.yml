@@ -3,7 +3,7 @@ name: Upload Reel to YouTube
 on:
   workflow_dispatch:
   schedule:
-    - cron: '0 5,16 * * *'
+    - cron: '30 17 * * *'
 
 jobs:
   upload-reel-youtube:

@@ -3,7 +3,7 @@ name: Upload HTMLCSS Poster to Facebook
 on:
   workflow_dispatch:
   schedule:
-    - cron: '0 12 * * *'
+    - cron: '0 16 * * 2,4'
 
 jobs:
   upload:

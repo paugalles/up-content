@@ -3,7 +3,7 @@ name: Upload Poster to Instagram
 on:
   workflow_dispatch:
   # schedule:
-  #   - cron: '0 16 * * *'
+  #   - cron: '30 6 * * 2,4,6'
 
 jobs:
   upload-poster-instagram:
