@@ -39,6 +39,15 @@ def hex_to_rgb(hex_color: str):
 
 Scene = namedtuple("Scene", ["spoken_text", "slide_title", "slide_body", "is_title"])
 
+def clean_bullet_text(text: str) -> str:
+    text = text.strip()
+    # Remove leading common bullet markers (including unicode bullets)
+    text = re.sub(r'^[\-\*\•\>·]+', '', text).strip()
+    # Remove markdown bold/italic markers
+    text = text.replace('**', '')
+    text = text.replace('__', '')
+    return text
+
 def draw_wrapped_text(draw, text, font, x, y, width_chars, fill, bullet=False, align="left"):
     import textwrap
     lines = textwrap.wrap(text, width=width_chars)
@@ -176,7 +185,7 @@ def create_pptx_and_images(slides_data, images_dir, pptx_path, slide_images_dir)
         for bullet in bullets:
             if not str(bullet).strip(): continue
             p = tf2.add_paragraph()
-            p.text = str(bullet).strip().lstrip('-').strip()
+            p.text = clean_bullet_text(str(bullet))
             p.font.size = Pt(28)
             p.font.color.rgb = RGBColor(*text_rgb)
             p.level = 0
@@ -196,7 +205,7 @@ def create_pptx_and_images(slides_data, images_dir, pptx_path, slide_images_dir)
         y = 250
         for bullet in bullets:
             if not str(bullet).strip(): continue
-            y = draw_wrapped_text(draw, str(bullet).strip().lstrip('-').strip(), body_font, 150, y, 35, text_rgb, bullet=True)
+            y = draw_wrapped_text(draw, clean_bullet_text(str(bullet)), body_font, 150, y, 35, text_rgb, bullet=True)
             
         if img_path.exists():
             clean_img = Image.open(str(clean_img_path)).convert("RGBA")
