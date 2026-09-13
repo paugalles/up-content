@@ -2,8 +2,8 @@ name: Upload HTMLCSS Carousel to Instagram
 
 on:
   workflow_dispatch:
-  # schedule:
-  #   - cron: '30 12 * * *'
+  schedule:
+    - cron: '30 12 * * *'
 
 jobs:
   upload:
