@@ -33,8 +33,13 @@ def instagram(assets: list[Path], caption: str, http=Http(attempts=6)):
             poll(lambda: http.json("GET", f"{GRAPH}/{child}", params={"fields": "status_code", "access_token": env["META_ACCESS_TOKEN"]}), lambda x: x.get("status_code") == "FINISHED", "Instagram child", failed=lambda x: x.get("status_code") in {"ERROR", "EXPIRED"})
             children.append(child)
         else:
-            # Single image post
-            parent = http.json("POST", f"{GRAPH}/{env['INSTAGRAM_ACCOUNT_ID']}/media", data={"image_url": url, "caption": caption, "access_token": env["META_ACCESS_TOKEN"]})["id"]
+            # Single image post or Reel
+            if path.suffix.lower() in [".mp4", ".mov"]:
+                post_data = {"media_type": "REELS", "video_url": url, "caption": caption, "access_token": env["META_ACCESS_TOKEN"]}
+            else:
+                post_data = {"image_url": url, "caption": caption, "access_token": env["META_ACCESS_TOKEN"]}
+            
+            parent = http.json("POST", f"{GRAPH}/{env['INSTAGRAM_ACCOUNT_ID']}/media", data=post_data)["id"]
             poll(lambda: http.json("GET", f"{GRAPH}/{parent}", params={"fields": "status_code", "access_token": env["META_ACCESS_TOKEN"]}), lambda x: x.get("status_code") == "FINISHED", "Instagram media", failed=lambda x: x.get("status_code") in {"ERROR", "EXPIRED"})
             
             import time
