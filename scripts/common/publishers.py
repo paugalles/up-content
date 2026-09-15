@@ -135,16 +135,22 @@ def tiktok(assets: list[Path], caption: str, http=Http()):
     is_video = len(assets) == 1 and assets[0].suffix.lower() in [".mp4", ".mov", ".webm"]
     source_info = {"source": "FILE_UPLOAD"}
     
+    total_size = sum(asset.stat().st_size for asset in assets)
+    
     if is_video:
-        size = assets[0].stat().st_size
-        source_info["video_size"] = size
-        source_info["chunk_size"] = size
+        source_info["video_size"] = total_size
+        source_info["chunk_size"] = total_size
         source_info["total_chunk_count"] = 1
     else:
         photo_images = []
         for asset in assets:
             size = asset.stat().st_size
-            photo_images.append({"image_size": size, "chunk_size": size, "total_chunk_count": 1})
+            # TikTok API expects these as JSON strings inside the array
+            photo_images.append(json.dumps({"image_size": size, "chunk_size": size, "total_chunk_count": 1}))
+            
+        source_info["video_size"] = total_size
+        source_info["chunk_size"] = total_size
+        source_info["total_chunk_count"] = 1
         source_info["photo_cover_index"] = 1
         source_info["photo_images"] = photo_images
         
