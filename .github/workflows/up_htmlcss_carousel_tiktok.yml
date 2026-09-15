@@ -38,6 +38,6 @@ jobs:
           TIKTOK_REFRESH_TOKEN: ${{ secrets.TIKTOK_REFRESH_TOKEN }}
           TIKTOK_CLIENT_ID: ${{ secrets.TIKTOK_CLIENT_ID }}
           TIKTOK_CLIENT_SECRET: ${{ secrets.TIKTOK_CLIENT_SECRET }}
-          TIKTOK_PRIVACY_LEVEL: "PUBLIC_TO_EVERYONE"
+          TIKTOK_PRIVACY_LEVEL: "SELF_ONLY"
         run: |
           python scripts/up_htmlcss_carousel_tiktok.py
