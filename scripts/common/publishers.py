@@ -112,11 +112,11 @@ def youtube(asset: Path, content: dict):
 def tiktok(assets: list[Path], caption: str, http=Http()):
     refresh_token = os.getenv("TIKTOK_REFRESH_TOKEN")
     if refresh_token:
-        env = require("TIKTOK_CLIENT_KEY", "TIKTOK_CLIENT_SECRET")
+        env = require("TIKTOK_CLIENT_ID", "TIKTOK_CLIENT_SECRET")
         token_resp = http.json("POST", "https://open.tiktokapis.com/v2/oauth/token/", 
                                headers={"Content-Type": "application/x-www-form-urlencoded"},
                                data={
-                                   "client_key": env["TIKTOK_CLIENT_KEY"],
+                                   "client_key": env["TIKTOK_CLIENT_ID"],
                                    "client_secret": env["TIKTOK_CLIENT_SECRET"],
                                    "grant_type": "refresh_token",
                                    "refresh_token": refresh_token
