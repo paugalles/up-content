@@ -110,16 +110,43 @@ def youtube(asset: Path, content: dict):
 
 
 def tiktok(assets: list[Path], caption: str, http=Http()):
-    token = require("TIKTOK_ACCESS_TOKEN")["TIKTOK_ACCESS_TOKEN"]
+    refresh_token = os.getenv("TIKTOK_REFRESH_TOKEN")
+    if refresh_token:
+        env = require("TIKTOK_CLIENT_KEY", "TIKTOK_CLIENT_SECRET")
+        token_resp = http.json("POST", "https://open.tiktokapis.com/v2/oauth/token/", 
+                               headers={"Content-Type": "application/x-www-form-urlencoded"},
+                               data={
+                                   "client_key": env["TIKTOK_CLIENT_KEY"],
+                                   "client_secret": env["TIKTOK_CLIENT_SECRET"],
+                                   "grant_type": "refresh_token",
+                                   "refresh_token": refresh_token
+                               })
+        token = token_resp.get("access_token")
+        if not token:
+            raise RuntimeError(f"Failed to refresh TikTok token: {token_resp}")
+    else:
+        token = require("TIKTOK_ACCESS_TOKEN")["TIKTOK_ACCESS_TOKEN"]
+        
     headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json; charset=UTF-8"}
     creator = http.json("POST", f"{TIKTOK}/post/publish/creator_info/query/", headers=headers, json={})["data"]
     privacy = os.getenv("TIKTOK_PRIVACY_LEVEL") or "SELF_ONLY"
     if privacy not in creator.get("privacy_level_options", []): raise RuntimeError(f"TIKTOK_PRIVACY_LEVEL {privacy} is not available")
     
-    photo_images = []
-    for asset in assets:
-        size = asset.stat().st_size
-        photo_images.append({"image_size": size, "chunk_size": size, "total_chunk_count": 1})
+    is_video = len(assets) == 1 and assets[0].suffix.lower() in [".mp4", ".mov", ".webm"]
+    source_info = {"source": "FILE_UPLOAD"}
+    
+    if is_video:
+        size = assets[0].stat().st_size
+        source_info["video_size"] = size
+        source_info["chunk_size"] = size
+        source_info["total_chunk_count"] = 1
+    else:
+        photo_images = []
+        for asset in assets:
+            size = asset.stat().st_size
+            photo_images.append({"image_size": size, "chunk_size": size, "total_chunk_count": 1})
+        source_info["photo_cover_index"] = 1
+        source_info["photo_images"] = photo_images
         
     data = http.json("POST", f"{TIKTOK}/post/publish/video/init/", headers=headers, json={
         "post_info": {
@@ -130,11 +157,7 @@ def tiktok(assets: list[Path], caption: str, http=Http()):
             "disable_stitch": False,
             "music": "Education"
         }, 
-        "source_info": {
-            "source": "FILE_UPLOAD", 
-            "photo_cover_index": 1,
-            "photo_images": photo_images
-        }
+        "source_info": source_info
     })["data"]
     
     upload_urls = data.get("upload_urls") or [img.get("upload_url") for img in data.get("photo_images", [])]
@@ -144,8 +167,16 @@ def tiktok(assets: list[Path], caption: str, http=Http()):
     for i, asset in enumerate(assets):
         if i < len(upload_urls):
             size = asset.stat().st_size
+            
+            ext = asset.suffix.lower()
+            if ext in [".mp4"]: content_type = "video/mp4"
+            elif ext in [".mov"]: content_type = "video/quicktime"
+            elif ext in [".webm"]: content_type = "video/webm"
+            elif ext in [".png"]: content_type = "image/png"
+            else: content_type = "image/jpeg"
+            
             with asset.open("rb") as handle: 
-                http.request("PUT", upload_urls[i], headers={"Content-Type": "image/jpeg", "Content-Range": f"bytes 0-{size-1}/{size}"}, data=handle)
+                http.request("PUT", upload_urls[i], headers={"Content-Type": content_type, "Content-Range": f"bytes 0-{size-1}/{size}"}, data=handle)
                 
     poll(lambda: http.json("POST", f"{TIKTOK}/post/publish/status/fetch/", headers=headers, json={"publish_id": data["publish_id"]})["data"], lambda x: x.get("status") in {"PUBLISH_COMPLETE", "SEND_TO_USER_INBOX"}, "TikTok post", attempts=30, failed=lambda x: x.get("status") == "FAILED")
     return data["publish_id"]
