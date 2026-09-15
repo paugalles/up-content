@@ -4,7 +4,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from scripts.common.publishers import tiktok
+from scripts.common.publishers import tiktok_bundle_social
 from scripts.common.reel_uploader import process_reel_upload
 
 def extract_metadata(meta_json):
@@ -18,7 +18,7 @@ def extract_metadata(meta_json):
     return f"{caption}\n\n{tags_str}".strip()
 
 def upload_func(video_path, caption):
-    tiktok([video_path], caption)
+    tiktok_bundle_social([video_path], caption)
 
 if __name__ == "__main__":
     process_reel_upload("tiktok", upload_func, extract_metadata)

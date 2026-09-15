@@ -3,6 +3,7 @@ name: Upload HTMLCSS Poster to TikTok
 on:
   workflow_dispatch:
   # schedule:
+  #   - cron: "0 18 4,12,20,28 * *"
   #   - cron: '0 6 * * *'
 
 jobs:
@@ -34,10 +35,8 @@ jobs:
       - name: Run Upload Script
         env:
           HTMLCSS_MEDIA_FOLDER: ${{ secrets.HTMLCSS_MEDIA_FOLDER }}
-          TIKTOK_ACCESS_TOKEN: ${{ secrets.TIKTOK_ACCESS_TOKEN }}
-          TIKTOK_REFRESH_TOKEN: ${{ secrets.TIKTOK_REFRESH_TOKEN }}
-          TIKTOK_CLIENT_ID: ${{ secrets.TIKTOK_CLIENT_ID }}
-          TIKTOK_CLIENT_SECRET: ${{ secrets.TIKTOK_CLIENT_SECRET }}
+          BUNDLE_SOCIAL_API_KEY: ${{ secrets.BUNDLE_SOCIAL_API_KEY }}
+          BUNDLE_SOCIAL_TEAM_ID: ${{ secrets.BUNDLE_SOCIAL_TEAM_ID }}
           TIKTOK_PRIVACY_LEVEL: "SELF_ONLY"
         run: |
           python scripts/up_htmlcss_poster_tiktok.py

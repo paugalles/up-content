@@ -3,7 +3,7 @@ import os
 import subprocess
 import time
 import uuid
-from datetime import timedelta
+from datetime import timedelta, datetime, timezone
 from pathlib import Path
 
 from .config import GRAPH, LINKEDIN, TIKTOK, require
@@ -186,6 +186,54 @@ def tiktok(assets: list[Path], caption: str, http=Http()):
                 
     poll(lambda: http.json("POST", f"{TIKTOK}/post/publish/status/fetch/", headers=headers, json={"publish_id": data["publish_id"]})["data"], lambda x: x.get("status") in {"PUBLISH_COMPLETE", "SEND_TO_USER_INBOX"}, "TikTok post", attempts=30, failed=lambda x: x.get("status") == "FAILED")
     return data["publish_id"]
+
+
+def tiktok_bundle_social(assets: list[Path], caption: str, http=Http()):
+    env = require("BUNDLE_SOCIAL_API_KEY", "BUNDLE_SOCIAL_TEAM_ID")
+    headers = {"x-api-key": env["BUNDLE_SOCIAL_API_KEY"]}
+    
+    upload_ids = []
+    for asset in assets:
+        with asset.open("rb") as f:
+            resp = http.json(
+                "POST", 
+                "https://api.bundle.social/api/v1/upload/", 
+                headers=headers, 
+                data={"teamId": env["BUNDLE_SOCIAL_TEAM_ID"]}, 
+                files={"file": (asset.name, f)}
+            )
+            upload_ids.append(resp["id"])
+            
+    is_video = len(assets) == 1 and assets[0].suffix.lower() in [".mp4", ".mov", ".webm"]
+    
+    payload = {
+        "teamId": env["BUNDLE_SOCIAL_TEAM_ID"],
+        "title": caption[:2200] if caption else "TikTok Post",
+        "postDate": datetime.now(timezone.utc).isoformat(),
+        "status": "SCHEDULED",
+        "socialAccountTypes": ["TIKTOK"],
+        "data": {
+            "TIKTOK": {
+                "type": "VIDEO" if is_video else "IMAGE",
+                "text": caption[:2200],
+                "uploadIds": upload_ids,
+                "privacy": os.getenv("TIKTOK_PRIVACY_LEVEL") or "SELF_ONLY",
+                "disableComments": False,
+                "disableDuet": False,
+                "disableStitch": False,
+                "isAiGenerated": False
+            }
+        }
+    }
+    
+    resp = http.json(
+        "POST", 
+        "https://api.bundle.social/api/v1/post/", 
+        headers=headers, 
+        json=payload
+    )
+    
+    return resp["id"]
 
 
 def linkedin(asset: Path, caption: str, http=Http()):
