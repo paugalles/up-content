@@ -229,7 +229,8 @@ def tiktok_bundle_social(assets: list[Path], caption: str, http=Http()):
                 "disableComments": False,
                 "disableDuet": False,
                 "disableStitch": False,
-                "isAiGenerated": False
+                "isAiGenerated": False,
+                "autoScale": True
             }
         }
     }
