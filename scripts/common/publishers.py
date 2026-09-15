@@ -154,15 +154,19 @@ def tiktok(assets: list[Path], caption: str, http=Http()):
         source_info["photo_cover_index"] = 1
         source_info["photo_images"] = photo_images
         
+    post_info = {
+        "title": caption[:2200], 
+        "privacy_level": privacy, 
+        "disable_duet": False, 
+        "disable_comment": False, 
+        "disable_stitch": False
+    }
+    
+    if not is_video:
+        post_info["music"] = "Education"
+        
     data = http.json("POST", f"{TIKTOK}/post/publish/video/init/", headers=headers, json={
-        "post_info": {
-            "title": caption[:2200], 
-            "privacy_level": privacy, 
-            "disable_duet": False, 
-            "disable_comment": False, 
-            "disable_stitch": False,
-            "music": "Education"
-        }, 
+        "post_info": post_info, 
         "source_info": source_info
     })["data"]
     
@@ -236,6 +240,7 @@ def tiktok_bundle_social(assets: list[Path], caption: str, http=Http()):
     
     if not is_video:
         payload["data"]["TIKTOK"]["autoScale"] = True
+        payload["data"]["TIKTOK"]["music"] = "Education"
     
     resp = http.json(
         "POST", 
