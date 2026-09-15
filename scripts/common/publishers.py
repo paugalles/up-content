@@ -194,13 +194,21 @@ def tiktok_bundle_social(assets: list[Path], caption: str, http=Http()):
     
     upload_ids = []
     for asset in assets:
+        ext = asset.suffix.lower()
+        if ext in [".mp4"]: content_type = "video/mp4"
+        elif ext in [".mov"]: content_type = "video/quicktime"
+        elif ext in [".webm"]: content_type = "video/webm"
+        elif ext in [".png"]: content_type = "image/png"
+        elif ext in [".gif"]: content_type = "image/gif"
+        else: content_type = "image/jpeg"
+        
         with asset.open("rb") as f:
             resp = http.json(
                 "POST", 
                 "https://api.bundle.social/api/v1/upload/", 
                 headers=headers, 
                 data={"teamId": env["BUNDLE_SOCIAL_TEAM_ID"]}, 
-                files={"file": (asset.name, f)}
+                files={"file": (asset.name, f, content_type)}
             )
             upload_ids.append(resp["id"])
             
