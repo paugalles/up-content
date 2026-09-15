@@ -2,9 +2,9 @@ name: Upload HTMLCSS Poster to TikTok
 
 on:
   workflow_dispatch:
-  # schedule:
-  #   - cron: "0 18 4,12,20,28 * *"
-  #   - cron: '0 6 * * *'
+  schedule:
+    - cron: "0 18 4,12,20,28 * *"
+    - cron: '0 6 * * *'
 
 jobs:
   upload:
