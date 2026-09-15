@@ -37,6 +37,6 @@ jobs:
           POSTER_MEDIA_FOLDER: ${{ secrets.POSTER_MEDIA_FOLDER }}
           BUNDLE_SOCIAL_API_KEY: ${{ secrets.BUNDLE_SOCIAL_API_KEY }}
           BUNDLE_SOCIAL_TEAM_ID: ${{ secrets.BUNDLE_SOCIAL_TEAM_ID }}
-          TIKTOK_PRIVACY_LEVEL: "SELF_ONLY"
+          TIKTOK_PRIVACY_LEVEL: ${{ secrets.TIKTOK_PRIVACY_LEVEL }}
         run: |
           python scripts/up_poster_tiktok.py
