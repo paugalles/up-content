@@ -229,11 +229,13 @@ def tiktok_bundle_social(assets: list[Path], caption: str, http=Http()):
                 "disableComments": False,
                 "disableDuet": False,
                 "disableStitch": False,
-                "isAiGenerated": False,
-                "autoScale": True
+                "isAiGenerated": False
             }
         }
     }
+    
+    if not is_video:
+        payload["data"]["TIKTOK"]["autoScale"] = True
     
     resp = http.json(
         "POST", 
