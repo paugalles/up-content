@@ -240,7 +240,7 @@ def tiktok_bundle_social(assets: list[Path], caption: str, http=Http()):
     
     if not is_video:
         payload["data"]["TIKTOK"]["autoScale"] = True
-        payload["data"]["TIKTOK"]["music"] = "Education"
+        payload["data"]["TIKTOK"]["autoAddMusic"] = True
     
     resp = http.json(
         "POST", 
