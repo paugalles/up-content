@@ -98,11 +98,17 @@ def fetch_article_text(http: Http, url: str) -> str:
 
 def get_llm_prompt(language: str) -> str:
     lang_name = "English" if language == "en" else "Spanish"
+    brand_cta = os.environ.get("BRAND_CTA_EN", "Read the complete guide at inmibot.es.") if language == "en" else os.environ.get("BRAND_CTA_ES", "Consulta la guía completa en inmibot.es.")
     return f"""
 You are an expert Social Media Manager. Analyze the provided blog article and extract highly useful, non-generic information (like specific requirements, precise forms to fill, where to book appointments). DO NOT include generic advice like "read instructions".
 
 IMPORTANT FORMATTING RULE FOR CAROUSEL SLIDES:
-If you are generating a list of items for a carousel slide's body, you MUST format them clearly. You MUST start EVERY single list item with the EXACT character "• " (a bullet point followed by a space). Do NOT use emojis, do NOT use numbers, do NOT use a single running paragraph. 
+The FIRST slide in the carousel MUST be a Cover/Title slide. It should have a catchy 'title' to hook the reader, and its 'body' MUST be an empty string.
+The FINAL slide in the carousel MUST be a promotional slide. It should have an engaging title and its 'body' MUST contain the exact call to action: "{brand_cta}".
+For the remaining slides, if you are generating a list of items for a carousel slide's body, you MUST format them clearly. You MUST start EVERY single list item with the EXACT character "• " (a bullet point followed by a space). Do NOT use emojis, do NOT use numbers, do NOT use a single running paragraph. 
+
+JSON FORMATTING RULE:
+Ensure all JSON strings are properly escaped. Do not use raw newlines or unescaped control characters inside strings; use \\n instead.
 
 Generate the content in {lang_name} and output a strict JSON object matching this EXACT schema:
 {{
@@ -113,7 +119,9 @@ Generate the content in {lang_name} and output a strict JSON object matching thi
         "poster_title": "Short Hook Title (in {lang_name})",
         "poster_quote": "A powerful, specific quote or key takeaway extracted from the article (in {lang_name}).",
         "carousel_slides": [
-            {{"title": "Slide 1 Title (in {lang_name})", "body": "Specific detailed info (in {lang_name})."}}
+            {{"title": "Catchy Cover Slide Title (in {lang_name})", "body": ""}},
+            {{"title": "Slide 2 Title (in {lang_name})", "body": "Specific detailed info (in {lang_name})."}},
+            {{"title": "Final Promotional Slide Title (in {lang_name})", "body": "{brand_cta}"}}
         ]
     }},
     "linkedin": {{
@@ -123,7 +131,9 @@ Generate the content in {lang_name} and output a strict JSON object matching thi
         "poster_title": "Short Hook Title (in {lang_name})",
         "poster_quote": "A powerful, specific quote or key takeaway extracted from the article (in {lang_name}).",
         "carousel_slides": [
-            {{"title": "Slide 1 Title (in {lang_name})", "body": "Specific detailed info (in {lang_name})."}}
+            {{"title": "Catchy Cover Slide Title (in {lang_name})", "body": ""}},
+            {{"title": "Slide 2 Title (in {lang_name})", "body": "Specific detailed info (in {lang_name})."}},
+            {{"title": "Final Promotional Slide Title (in {lang_name})", "body": "{brand_cta}"}}
         ]
     }},
     "facebook": {{
@@ -133,7 +143,9 @@ Generate the content in {lang_name} and output a strict JSON object matching thi
         "poster_title": "Short Hook Title (in {lang_name})",
         "poster_quote": "A powerful, specific quote or key takeaway extracted from the article (in {lang_name}).",
         "carousel_slides": [
-            {{"title": "Slide 1 Title (in {lang_name})", "body": "Specific detailed info (in {lang_name})."}}
+            {{"title": "Catchy Cover Slide Title (in {lang_name})", "body": ""}},
+            {{"title": "Slide 2 Title (in {lang_name})", "body": "Specific detailed info (in {lang_name})."}},
+            {{"title": "Final Promotional Slide Title (in {lang_name})", "body": "{brand_cta}"}}
         ]
     }},
     "tiktok": {{
@@ -143,7 +155,9 @@ Generate the content in {lang_name} and output a strict JSON object matching thi
         "poster_title": "Short Hook Title (in {lang_name})",
         "poster_quote": "A powerful, specific quote or key takeaway extracted from the article (in {lang_name}).",
         "carousel_slides": [
-            {{"title": "Slide 1 Title (in {lang_name})", "body": "Specific detailed info (in {lang_name})."}}
+            {{"title": "Catchy Cover Slide Title (in {lang_name})", "body": ""}},
+            {{"title": "Slide 2 Title (in {lang_name})", "body": "Specific detailed info (in {lang_name})."}},
+            {{"title": "Final Promotional Slide Title (in {lang_name})", "body": "{brand_cta}"}}
         ]
     }}
 }}
@@ -158,7 +172,7 @@ async def generate_social_content(text: str, language: str) -> dict:
             response_mime_type="application/json",
         )
     )
-    return json.loads(response.text)
+    return json.loads(response.text, strict=False)
 
 
 async def render_html_to_image(page, html_path: Path, output_jpg: Path):
@@ -283,7 +297,7 @@ async def main(args=None):
         browser = await p.chromium.launch(headless=True)
         
         # We can run in chunks to avoid overwhelming Playwright / Gemini
-        chunk_size = 10
+        chunk_size = 20
         for i in range(0, len(tasks_data), chunk_size):
             chunk = tasks_data[i:i+chunk_size]
             coroutines = [process_url(browser, url, lang, output_base) for url, lang in chunk]
