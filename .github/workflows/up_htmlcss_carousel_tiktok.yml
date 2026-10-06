@@ -3,8 +3,7 @@ name: Upload HTMLCSS Carousel to TikTok
 on:
   workflow_dispatch:
   schedule:
-    - cron: "0 18 2,10,18,26 * *"
-    - cron: '0 13 * * *'
+    - cron: '0 18 3,8,13,18,23 * *'
 
 jobs:
   upload:

@@ -3,8 +3,7 @@ name: Upload Reel to TikTok
 on:
   workflow_dispatch:
   schedule:
-    - cron: "0 18 1,5,9,13,17,21,25,29 * *"
-    - cron: '0 19 * * *'
+    - cron: '0 18 1,6,11,16,21 * *'
 
 jobs:
   upload-reel-tiktok:
